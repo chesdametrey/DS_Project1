@@ -1,8 +1,14 @@
 package activitystreamer.client;
 
+import java.io.IOException;
+import java.net.Socket;
+import java.net.UnknownHostException;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.json.simple.JSONObject;
+
+import activitystreamer.util.Settings;
 
 public class ClientSolution extends Thread {
 	private static final Logger log = LogManager.getLogger();
@@ -12,6 +18,9 @@ public class ClientSolution extends Thread {
 	/*
 	 * additional variables
 	 */
+	private String remoteHost = Settings.getRemoteHostname();
+	private int remotePort = Settings.getRemotePort();
+	private Socket clientSocket;
 	
 	// this is a singleton object
 	public static ClientSolution getInstance(){
@@ -29,6 +38,19 @@ public class ClientSolution extends Thread {
 		// open the gui
 		log.debug("opening the gui");
 		textFrame = new TextFrame();
+		
+		log.info("***Innitiate New Socket***");
+		try {
+			clientSocket = new Socket(remoteHost, remotePort);
+		} catch (UnknownHostException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		
 		// start the client's thread
 		start();
 	}
