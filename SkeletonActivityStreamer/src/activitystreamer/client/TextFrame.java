@@ -74,6 +74,7 @@ public class TextFrame extends JFrame implements ActionListener {
 		setSize(1280,768);
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		setVisible(true);
+		
 	}
 
 	public void setOutputText(final JSONObject obj){

@@ -1,4 +1,4 @@
-package activitystreamer;
+ package activitystreamer;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;

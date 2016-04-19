@@ -48,6 +48,7 @@ public class ControlSolution extends Control {
 		/*
 		 * do additional things here
 		 */
+		//load balancing
 		
 		return con;
 	}
@@ -89,7 +90,9 @@ public class ControlSolution extends Control {
 		 * do additional work here
 		 * return true/false as appropriate
 		 */
-		
+		for(Connection connection : connections){
+			connection.writeMsg(msg);
+		}
 		return false;
 	}
 
