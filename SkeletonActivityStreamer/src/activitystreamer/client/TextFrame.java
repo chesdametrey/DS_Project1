@@ -71,7 +71,7 @@ public class TextFrame extends JFrame implements ActionListener {
 		add(mainPanel);
 		
 		setLocationRelativeTo(null); 
-		setSize(1280,768);
+		setSize(680,268);
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		setVisible(true);
 		

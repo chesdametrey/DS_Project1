@@ -67,7 +67,7 @@ public class Client {
 			Settings.setUsername(cmd.getOptionValue("u"));
 		}
 		
-		
+	
 		log.info("starting client");
 		
 		
