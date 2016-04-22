@@ -1,4 +1,4 @@
-package activitystreamer;
+ package activitystreamer;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -67,7 +67,7 @@ public class Client {
 			Settings.setUsername(cmd.getOptionValue("u"));
 		}
 		
-		
+	
 		log.info("starting client");
 		
 		
