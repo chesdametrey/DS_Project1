@@ -17,27 +17,27 @@ import activitystreamer.util.Settings;
 public class ClientSolution extends Thread {
 	private static final Logger log = LogManager.getLogger();
 	private static ClientSolution clientSolution;
+	private static boolean term  = false;
 	private TextFrame textFrame;
-	
+
 	/*
 	 * additional variables
 	 */
 	private Socket clientSocket;
 	private BufferedReader inFromServer;
 	private DataOutputStream outToServer;
-	private String remoteHost=Settings.getRemoteHostname();
-	private int remotePort=Settings.getRemotePort();
-	
-	
+	private String remoteHost = Settings.getRemoteHostname();
+	private int remotePort = Settings.getRemotePort();
+
 	// this is a singleton object
-	public static ClientSolution getInstance(){
-		if(clientSolution==null){
+	public static ClientSolution getInstance() {
+		if (clientSolution == null) {
 			clientSolution = new ClientSolution();
 		}
 		return clientSolution;
 	}
-	
-	public ClientSolution(){
+
+	public ClientSolution() {
 		/*
 		 * some additional initialization
 		 */
@@ -45,66 +45,85 @@ public class ClientSolution extends Thread {
 		// open the gui
 		log.debug("opening the gui");
 		textFrame = new TextFrame();
-		try{
-			clientSocket=new Socket(this.remoteHost,this.remotePort);
-			System.out.println("Connect to Server "+this.remoteHost+":"+remotePort+" successfully.");
-			inFromServer=new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-			outToServer=new DataOutputStream(clientSocket.getOutputStream());
-		}catch(IOException e){
-			System.out.println("Failed to connect server "+remoteHost+":"+remotePort);
+		try {
+			clientSocket = new Socket(this.remoteHost, this.remotePort);
+			System.out.println("Connect to Server " + this.remoteHost + ":"
+					+ remotePort + " successfully.");
+			inFromServer = new BufferedReader(new InputStreamReader(
+					clientSocket.getInputStream()));
+			outToServer = new DataOutputStream(clientSocket.getOutputStream());
+		} catch (IOException e) {
+			System.out.println("Failed to connect server " + remoteHost + ":"
+					+ remotePort);
 			System.out.println(e.toString());
 			e.printStackTrace();
 		}
 		// start the client's thread
 		start();
 	}
-	
+
 	// called by the gui when the user clicks "send"
-	public void sendActivityObject(JSONObject activityObj){
-		String JsonString=activityObj.toJSONString();
+	public void sendActivityObject(JSONObject activityObj) {
+		String JsonString = activityObj.toJSONString();
+
 		try {
-			outToServer.writeBytes(JsonString+'\n');
+			outToServer.writeBytes(JsonString + '\n');
 			System.out.println("Msg sent");
+			
+			if(activityObj.get("command").equals("LOGOUT")){
+				textFrame.setVisible(false);
+			}
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 	}
-	
+
 	// called by the gui when the user clicks disconnect
-	public void disconnect(){
+	public void disconnect() {
 		textFrame.setVisible(false);
 		/*
 		 * other things to do
 		 */
-		try {
+		setTerm(true);
+		JSONObject logout = new JSONObject();
+		logout.put("command","LOGOUT");
+		this.sendActivityObject(logout);
+		
+		
+		/*try {
+			setTerm(true);
 			clientSocket.close();
 			System.out.println("Connection closed.");
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
-		}
+		}*/
 	}
-	
 
 	// the client's run method, to receive messages
 	@Override
-	public void run(){
-		try {
-			String JsonMsg=inFromServer.readLine();
-			JSONObject obj;
-			JSONParser parser = new JSONParser();
-			obj = (JSONObject) parser.parse(JsonMsg);
-			textFrame.setOutputText(obj);
-		} catch (IOException | ParseException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+	public void run() {
+		while (!term) {
+			try {
+				String JsonMsg = inFromServer.readLine();
+				JSONObject obj;
+				JSONParser parser = new JSONParser();
+				obj = (JSONObject) parser.parse(JsonMsg);
+				textFrame.setOutputText(obj);
+
+			} catch (IOException | ParseException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+
 		}
-		
 	}
 
 	/*
 	 * additional methods
 	 */
-	
+	public final void setTerm(boolean t){
+		term = t;
+	}
 }

@@ -82,6 +82,7 @@ public class TextFrame extends JFrame implements ActionListener {
 		JsonParser jp = new JsonParser();
 		JsonElement je = jp.parse(obj.toJSONString());
 		String prettyJsonString = gson.toJson(je);
+		log.info(obj.toJSONString()+"*****");
 		outputText.setText(prettyJsonString);
 		outputText.revalidate();
 		outputText.repaint();
