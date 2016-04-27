@@ -1,5 +1,6 @@
 package activitystreamer.client;
 
+//just some modify to check if I can push on git
 import java.io.*;
 import java.net.Socket;
 
