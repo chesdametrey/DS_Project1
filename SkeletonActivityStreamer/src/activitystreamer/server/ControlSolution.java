@@ -25,7 +25,7 @@ public class ControlSolution extends Control {
 	 */
 	Hashtable<String, String> registeredClients = new Hashtable<String, String>();
 	ArrayList<Connection> allServers = new ArrayList<Connection>();
-	Hashtable<Connection,String> allClients = new Hashtable<Connection,String>();
+	Hashtable<Connection, String> allClients = new Hashtable<Connection, String>();
 	ArrayList<ServerAnnounce> serverAnnounces = new ArrayList<ServerAnnounce>();
 
 	// since control and its subclasses are singleton, we get the singleton this
@@ -79,6 +79,10 @@ public class ControlSolution extends Control {
 		serverMessage.put("secret", Settings.getSecret());
 		con.writeMsg(serverMessage.toString());
 
+		allServers.add(con);
+		ServerAnnounce sa = new ServerAnnounce(con, Settings.getSecret(), 0,
+				"", 0);
+		serverAnnounces.add(sa);
 		return con;
 	}
 
@@ -117,14 +121,15 @@ public class ControlSolution extends Control {
 			case "REGISTER":
 				username = messageObject.get("username").toString();
 				secret = messageObject.get("secret").toString();
-				/*if(!allClients.containsKey(username)){*/
-					register(username, secret, con);
-				/*}else{
-					JSONObject invalid = new JSONObject();
-					invalid.put("command", "INVALID_MESSAGE");
-					invalid.put("info", "Can not register new user while you are logged in");
-					con.writeMsg(invalid.toJSONString());	
-				}*/
+				/* if(!allClients.containsKey(username)){ */
+				register(username, secret, con);
+				/*
+				 * }else{ JSONObject invalid = new JSONObject();
+				 * invalid.put("command", "INVALID_MESSAGE");
+				 * invalid.put("info",
+				 * "Can not register new user while you are logged in");
+				 * con.writeMsg(invalid.toJSONString()); }
+				 */
 
 				log.debug("REGISTER");
 				break;
@@ -136,8 +141,8 @@ public class ControlSolution extends Control {
 
 				break;
 			case "LOGOUT":
-				//close connection
-				//remove connection from client hash table
+				// close connection
+				// remove connection from client hash table
 				allClients.remove(con);
 				log.debug("LOGOUT");
 				break;
@@ -146,29 +151,35 @@ public class ControlSolution extends Control {
 				secret = messageObject.get("secret").toString();
 				if (secret.equals(Settings.getSecret())) {
 					allServers.add(con);
-					ServerAnnounce sa = new ServerAnnounce(con,secret, 0, "", 0);
+					ServerAnnounce sa = new ServerAnnounce(con, secret, 0, "",
+							0);
 					serverAnnounces.add(sa);
-					log.info("AUTHENTICATED***YAY");
+					log.info("AUTHENTICATED***YAY**Size of SA = ***"
+							+ serverAnnounces.size());
 
 				}
 				break;
 			case "SERVER_ANNOUNCE":
 				String hostname = messageObject.get("hostname").toString();
-				int port = Integer.parseInt(messageObject.get("port").toString());
-				String id =  messageObject.get("id").toString();
-				int load = Integer.parseInt(messageObject.get("load").toString());
-				
-				for(ServerAnnounce sa: serverAnnounces){
-					if(sa.getCon().equals(con)){
-						sa.setHostname(hostname);
-						sa.setLoad(load);
-						sa.setPort(port);
-						sa.setID(id);
-						log.info("load: "+sa.getLoad()+" HN:"+sa.getHostname()+" ************");
-					}
-					
+				int port = Integer.parseInt(messageObject.get("port")
+						.toString());
+				String id = messageObject.get("id").toString();
+				int load = Integer.parseInt(messageObject.get("load")
+						.toString());
+
+				log.info("***SIZE***" + serverAnnounces.size());
+				for (ServerAnnounce sa : serverAnnounces) {
+					// if(sa.getCon().equals(con)){
+					sa.setHostname(hostname);
+					sa.setLoad(load);
+					sa.setPort(port);
+					sa.setID(id);
+					log.info("load: " + sa.getLoad() + " HN:"
+							+ sa.getHostname() + " ************");
+					// }
+
 				}
-				
+
 				log.info("*****WORKING*****");
 				break;
 			}
@@ -192,20 +203,21 @@ public class ControlSolution extends Control {
 		/*
 		 * do additional work here return true/false as appropriate
 		 */
-		
+
 		JSONObject serverAnnounce = new JSONObject();
 		serverAnnounce.put("command", "SERVER_ANNOUNCE");
 		serverAnnounce.put("id", Settings.getSecret());
 		serverAnnounce.put("load", allClients.size());
 		serverAnnounce.put("hostname", Settings.getLocalHostname());
 		serverAnnounce.put("port", Settings.getLocalPort());
-		
-		for(Connection c: allServers){
+
+		for (Connection c : allServers) {
 			c.writeMsg(serverAnnounce.toJSONString());
-		}		
-		/*for(Connection c: this.connections){
-			c.writeMsg(serverAnnounce.toJSONString());
-		}*/
+		}
+		/*
+		 * for(Connection c: this.connections){
+		 * c.writeMsg(serverAnnounce.toJSONString()); }
+		 */
 		log.info("**********");
 		return false;
 	}
@@ -218,7 +230,7 @@ public class ControlSolution extends Control {
 	public void register(String username, String secret, Connection con) {
 		Iterator it = registeredClients.keySet().iterator();
 		boolean exist = false;
-		if(!allClients.containsKey(con)){
+		if (!allClients.containsKey(con)) {
 			while (it.hasNext()) {
 				String name = (String) it.next();
 				if (name.equals(username)) {
@@ -246,26 +258,27 @@ public class ControlSolution extends Control {
 				con.writeMsg(success.toJSONString());
 
 			}
-		}else{
+		} else {
 			JSONObject invalid = new JSONObject();
 			invalid.put("command", "INVALID_MESSAGE");
-			invalid.put("info", "Can not register new user while you are logged in");
-			con.writeMsg(invalid.toJSONString());	
-			
-		}
+			invalid.put("info",
+					"Can not register new user while you are logged in");
+			con.writeMsg(invalid.toJSONString());
 
-		
+		}
 
 	}
 
 	@SuppressWarnings("unchecked")
 	public void login(String username, String secret, Connection con) {
-		Iterator it = registeredClients.keySet().iterator();
-		while (it.hasNext()) {
-			String name = (String) it.next();
-			String key = registeredClients.get(name);
+		// Iterator it = registeredClients.keySet().iterator();
+		// while (it.hasNext()) {
+		// String name = (String) it.next();
+		if (registeredClients.containsKey(username)) {
 
-			if (name.equals(username) && key.equals(secret)) {
+			String key = registeredClients.get(username);
+
+			if (key.equals(secret)) {
 				log.info("login sucess");
 				JSONObject success = new JSONObject();
 				success.put("command", "LOGIN_SUCCESS");
@@ -285,37 +298,45 @@ public class ControlSolution extends Control {
 						}
 					}
 				}
+				log.info("***smallestL = " + smallestL + "**ownLoad = "
+						+ ownLoad);
 				if (smallestL <= ownLoad - 2) {
 					// close the connect
 					// con.closeCon();
 					// redirect,establish a new connection
-					try {
-						Socket clientSocket = new Socket(serverAnnounces.get(small).getHostname(), serverAnnounces.get(small).getPort());
-						BufferedReader inFromServer = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-						DataOutputStream outToServer = new DataOutputStream(clientSocket.getOutputStream());
+					JSONObject redirect = new JSONObject();
+					redirect.put("command", "REDIRECT");
+					redirect.put("hostname", serverAnnounces.get(small)
+							.getHostname());
+					redirect.put("port", serverAnnounces.get(small).getPort());
+					con.writeMsg(redirect.toJSONString());
 
-						log.info("Established new connection");
-					} catch (UnknownHostException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					} catch (IOException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}
+					log.info("***host***"
+							+ serverAnnounces.get(small).getHostname()
+							+ "****port**"
+							+ serverAnnounces.get(small).getPort());
 
 				} else {
 					log.info("no new connection");
 					allClients.put(con, username);
 				}
 
-			}else{
+			} else {
 				JSONObject fail = new JSONObject();
 				fail.put("command", "LOGIN_FAILED");
-				fail.put("info", "attempt to login with invalid username or wrong secret");
+				fail.put("info",
+						"attempt to login with invalid username or wrong secret");
 				con.writeMsg(fail.toJSONString());
-				//close connection
+				// close connection
 			}
 
+		} else {
+			JSONObject fail = new JSONObject();
+			fail.put("command", "LOGIN_FAILED");
+			fail.put("info",
+					"attempt to login with invalid username or wrong secret");
+			con.writeMsg(fail.toJSONString());
+			// close connection
 		}
 
 	}
@@ -328,7 +349,8 @@ public class ControlSolution extends Control {
 		int port;
 		Connection con;
 
-		public ServerAnnounce(Connection con, String id, int load, String hostname, int port) {
+		public ServerAnnounce(Connection con, String id, int load,
+				String hostname, int port) {
 			this.con = con;
 			this.id = id;
 			this.load = load;
@@ -347,11 +369,11 @@ public class ControlSolution extends Control {
 		public int getPort() {
 			return port;
 		}
-		
-		public Connection getCon(){
+
+		public Connection getCon() {
 			return con;
 		}
-		
+
 		public void setLoad(int load) {
 			this.load = load;
 		}
@@ -363,11 +385,10 @@ public class ControlSolution extends Control {
 		public void setPort(int port) {
 			this.port = port;
 		}
+
 		public void setID(String id) {
 			this.id = id;
 		}
-		
-
 
 	}
 }

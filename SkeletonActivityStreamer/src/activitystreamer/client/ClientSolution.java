@@ -73,6 +73,14 @@ public class ClientSolution extends Thread {
 			if(activityObj.get("command").equals("LOGOUT")){
 				textFrame.setVisible(false);
 			}
+			//save secret key to Settings
+			if(activityObj.containsKey("secret")){
+				Settings.setSecret(activityObj.get("secret").toString());
+			}
+			//save user name to Settings
+			if(activityObj.containsKey("username")){
+				Settings.setUsername(activityObj.get("username").toString());
+			}
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -102,6 +110,7 @@ public class ClientSolution extends Thread {
 	}
 
 	// the client's run method, to receive messages
+	@SuppressWarnings("unchecked")
 	@Override
 	public void run() {
 		while (!term) {
@@ -111,6 +120,25 @@ public class ClientSolution extends Thread {
 				JSONParser parser = new JSONParser();
 				obj = (JSONObject) parser.parse(JsonMsg);
 				textFrame.setOutputText(obj);
+				
+				if(obj.get("command").equals("REDIRECT")){
+					Socket clientSocket = new Socket(obj.get("hostname").toString(), Integer.parseInt(obj.get("port").toString()));
+					inFromServer = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+					outToServer = new DataOutputStream(clientSocket.getOutputStream());
+					log.info("***Established new redirect connection***");
+
+					
+					JSONObject login = new JSONObject();
+					
+					login.put("command", "LOGIN");
+					login.put("username", Settings.getUsername());
+					login.put("secret", Settings.getSecret());
+					
+					this.sendActivityObject(login);
+					log.info("**sent activity object**");
+					
+					
+				}
 
 			} catch (IOException | ParseException e) {
 				// TODO Auto-generated catch block
