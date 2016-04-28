@@ -345,6 +345,13 @@ public class ControlSolution extends Control {
 						con.writeMsg(success.toJSONString());	
 						respondCount = 0;
 						log.info("***lock Allow = true ***");
+						
+						/*
+						 * log in user ????????????????
+						 * 
+						 */
+						
+						login(username,secret,con);
 					}else{
 						JSONObject fail = new JSONObject();
 						fail.put("command", "REGISTER_FAILED");

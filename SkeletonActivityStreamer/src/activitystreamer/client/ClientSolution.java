@@ -38,6 +38,7 @@ public class ClientSolution extends Thread {
 		return clientSolution;
 	}
 
+	@SuppressWarnings("unchecked")
 	public ClientSolution() {
 		/*
 		 * some additional initialization
@@ -61,6 +62,34 @@ public class ClientSolution extends Thread {
 		}
 		// start the client's thread
 		start();
+		
+		/*
+		 * handle client command line argument 
+		 */
+		
+		
+		//Client wants to login
+		if (!Settings.getUsername().isEmpty() && !Settings.getSecret().isEmpty()){
+			JSONObject loginObject = new JSONObject();
+			loginObject.put("command", "LOGIN");
+			loginObject.put("username", Settings.getUsername());
+			loginObject.put("secret", Settings.getSecret());
+			this.sendActivityObject(loginObject);
+		}
+		//Client wants to register 
+		log.info("USERNAME => "+Settings.getUsername());
+		if (!Settings.getUsername().isEmpty() && Settings.getSecret().isEmpty()){
+			
+			JSONObject registerObject = new JSONObject();
+			registerObject.put("command", "REGISTER");
+			registerObject.put("username", Settings.getUsername());
+			//generate a secret key
+			Settings.setSecret(Settings.nextSecret());
+			
+			registerObject.put("secret", Settings.getSecret());
+			this.sendActivityObject(registerObject);
+				
+		}
 	}
 
 	// called by the gui when the user clicks "send"
