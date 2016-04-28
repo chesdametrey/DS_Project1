@@ -74,7 +74,7 @@ public class ClientSolution extends Thread {
 			loginObject.put("command", "LOGIN");
 			loginObject.put("username", Settings.getUsername());
 			loginObject.put("secret", Settings.getSecret());
-			this.sendActivityObject(loginObject);
+			this.sendObject(loginObject);
 		}
 		//Client wants to register 
 		log.info("USERNAME => "+Settings.getUsername());
@@ -87,20 +87,27 @@ public class ClientSolution extends Thread {
 			Settings.setSecret(Settings.nextSecret());
 			
 			registerObject.put("secret", Settings.getSecret());
-			this.sendActivityObject(registerObject);
+			this.sendObject(registerObject);
 				
 		}
 	}
 
 	// called by the gui when the user clicks "send"
+	@SuppressWarnings("unchecked")
 	public void sendActivityObject(JSONObject activityObj) {
 		String JsonString = activityObj.toJSONString();
-
+		
+		JSONObject activity = new JSONObject();
+		activity.put("command", "ACTIVITY_MESSAGE");
+		activity.put("username",Settings.getUsername());
+		activity.put("secret", Settings.getSecret());
+		activity.put("activity", JsonString);
+		
 		try {
-			outToServer.writeBytes(JsonString + '\n');
+			outToServer.writeBytes(activity.toJSONString() + '\n');
 			System.out.println("Msg sent");
 			
-			if(activityObj.get("command").equals("LOGOUT")){
+			/*if(activityObj.get("command").equals("LOGOUT")){
 				textFrame.setVisible(false);
 			}
 			//save secret key to Settings
@@ -110,11 +117,23 @@ public class ClientSolution extends Thread {
 			//save user name to Settings
 			if(activityObj.containsKey("username")){
 				Settings.setUsername(activityObj.get("username").toString());
-			}
+			}*/
+			
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+	}
+	
+	public void sendObject(JSONObject activityObj) {
+		String JsonString = activityObj.toJSONString();
+		try {
+			outToServer.writeBytes(JsonString + '\n');
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		System.out.println("Msg sent");
 	}
 
 	// called by the gui when the user clicks disconnect
@@ -126,7 +145,7 @@ public class ClientSolution extends Thread {
 		setTerm(true);
 		JSONObject logout = new JSONObject();
 		logout.put("command","LOGOUT");
-		this.sendActivityObject(logout);
+		this.sendObject(logout);
 		
 		
 		/*try {
@@ -164,9 +183,19 @@ public class ClientSolution extends Thread {
 					login.put("username", Settings.getUsername());
 					login.put("secret", Settings.getSecret());
 					
-					this.sendActivityObject(login);
+					this.sendObject(login);
 					log.info("**sent activity object**");
 					
+					
+				}
+				
+				if(obj.get("command").equals("REGISTER_SUCCESS")){
+					
+					JSONObject login = new JSONObject();
+					login.put("command", "LOGIN");
+					login.put("username", Settings.getUsername());
+					login.put("secret", Settings.getSecret());
+					this.sendObject(login);
 					
 				}
 

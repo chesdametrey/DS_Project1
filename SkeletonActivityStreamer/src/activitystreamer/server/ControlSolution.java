@@ -27,8 +27,8 @@ public class ControlSolution extends Control {
 	ArrayList<Connection> allServers = new ArrayList<Connection>();
 	Hashtable<Connection, String> allClients = new Hashtable<Connection, String>();
 	ArrayList<ServerAnnounce> serverAnnounces = new ArrayList<ServerAnnounce>();
-	String wholeSecret = "";
-	private String id = "";
+	String wholeSecret = null;
+	private String id = null;
 
 	int respondCount = 0;
 	boolean lockAllow = true;
@@ -48,12 +48,19 @@ public class ControlSolution extends Control {
 		/*
 		 * Do some further initialization here if necessary
 		 */
-
+		
 		// check if we should initiate a connection and do so if necessary
 		initiateConnection();
 		// start the server's activity loop
 		// it will call doActivity every few seconds
 		start();
+		
+		if(Settings.getRemoteHostname() == null){
+			wholeSecret=Settings.nextSecret();
+			Settings.setSecret(wholeSecret);
+			log.info("Whole Secret is: "+wholeSecret);
+		}
+		id=Settings.nextSecret();
 	}
 
 	/*
@@ -157,12 +164,17 @@ public class ControlSolution extends Control {
 				secret = messageObject.get("secret").toString();
 				if (secret.equals(Settings.getSecret())) {
 					allServers.add(con);
-					ServerAnnounce sa = new ServerAnnounce(con, secret, 0, "",
-							0);
+					ServerAnnounce sa = new ServerAnnounce(con, secret, 0, "",0);
 					serverAnnounces.add(sa);
 					log.info("AUTHENTICATED***YAY**Size of SA = ***"
 							+ serverAnnounces.size());
 
+				}else{
+					JSONObject fail = new JSONObject();
+					fail.put("command", "AUTHENTICATION_FAIL");
+					fail.put("info","the supplied secret is incorrect: "+secret);
+					con.writeMsg(fail.toJSONString());
+					//close connection 
 				}
 				break;
 			case "SERVER_ANNOUNCE":
@@ -242,6 +254,40 @@ public class ControlSolution extends Control {
 				}
 				log.info("---------->respondCount= "+respondCount);
 				break;
+				
+			case "ACTIVITY_MESSAGE":
+				username = messageObject.get("username").toString();
+				if(allClients.containsValue(username) || username.equals("anonymous")){
+					String activity = messageObject.get("activity").toString();
+					
+					JSONObject activityObject;
+					JSONParser par= new JSONParser();
+					activityObject = (JSONObject) par.parse(activity);
+					activityObject.put("authenticated_user", username);
+					
+					JSONObject broadcast = new JSONObject();
+					broadcast.put("command","ACTIVITY_BROADCAST");
+					broadcast.put("activity",activityObject.toJSONString());
+					
+					for(Connection connect: connections){
+						connect.writeMsg(broadcast.toString());
+					}
+				}else{
+					JSONObject fail = new JSONObject();
+					fail.put("command", "AUTHENTICATION_FAIL");
+					fail.put("info", username +" has not logged in");
+					con.writeMsg(fail.toJSONString());
+				}
+				
+				break;
+				
+			case "ACTIVITY_BROADCAST":
+				Iterator it = allClients.keySet().iterator();
+				while (it.hasNext()) {
+					Connection connect = (Connection)it.next();
+					connect.writeMsg(msg);
+						
+				}
 			}
 		} catch (org.json.simple.parser.ParseException e) {
 			// TODO Auto-generated catch block
@@ -346,12 +392,6 @@ public class ControlSolution extends Control {
 						respondCount = 0;
 						log.info("***lock Allow = true ***");
 						
-						/*
-						 * log in user ????????????????
-						 * 
-						 */
-						
-						login(username,secret,con);
 					}else{
 						JSONObject fail = new JSONObject();
 						fail.put("command", "REGISTER_FAILED");
@@ -433,7 +473,7 @@ public class ControlSolution extends Control {
 				JSONObject fail = new JSONObject();
 				fail.put("command", "LOGIN_FAILED");
 				fail.put("info",
-						"attempt to login with invalid username or wrong secret");
+						"1. attempt to login with invalid username or wrong secret");
 				con.writeMsg(fail.toJSONString());
 				// close connection
 			}
@@ -442,7 +482,7 @@ public class ControlSolution extends Control {
 			JSONObject fail = new JSONObject();
 			fail.put("command", "LOGIN_FAILED");
 			fail.put("info",
-					"attempt to login with invalid username or wrong secret");
+					"2. attempt to login with invalid username or wrong secret");
 			con.writeMsg(fail.toJSONString());
 			// close connection
 		}
