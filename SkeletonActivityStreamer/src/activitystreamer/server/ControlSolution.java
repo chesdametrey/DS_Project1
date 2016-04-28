@@ -27,7 +27,13 @@ public class ControlSolution extends Control {
 	ArrayList<Connection> allServers = new ArrayList<Connection>();
 	Hashtable<Connection, String> allClients = new Hashtable<Connection, String>();
 	ArrayList<ServerAnnounce> serverAnnounces = new ArrayList<ServerAnnounce>();
+	String wholeSecret = "";
+	private String id = "";
 
+	int respondCount = 0;
+	boolean lockAllow = true;
+	String waitingUsername = null;
+	String waitingSecret = null;
 	// since control and its subclasses are singleton, we get the singleton this
 	// way
 	public static ControlSolution getInstance() {
@@ -121,6 +127,7 @@ public class ControlSolution extends Control {
 			case "REGISTER":
 				username = messageObject.get("username").toString();
 				secret = messageObject.get("secret").toString();
+				
 				/* if(!allClients.containsKey(username)){ */
 				register(username, secret, con);
 				/*
@@ -130,7 +137,6 @@ public class ControlSolution extends Control {
 				 * "Can not register new user while you are logged in");
 				 * con.writeMsg(invalid.toJSONString()); }
 				 */
-
 				log.debug("REGISTER");
 				break;
 			case "LOGIN":
@@ -182,15 +188,67 @@ public class ControlSolution extends Control {
 
 				log.info("*****WORKING*****");
 				break;
+			case "LOCK_REQUEST":
+				username = messageObject.get("username").toString();
+				secret = messageObject.get("secret").toString();
+				if(registeredClients.containsKey(username)){
+					JSONObject deny = new JSONObject();
+					deny.put("command", "LOCK_DENIED");
+					deny.put("username", username);
+					deny.put("secret", secret);
+					
+					for(Connection connect: allServers){
+						connect.writeMsg(deny.toJSONString());
+					}
+					
+					log.info("Sent LOCK_DENIED to all the servers");
+					
+					
+				}else{
+					JSONObject allow = new JSONObject();
+					allow.put("command", "LOCK_ALLOWED");
+					allow.put("username", username);
+					allow.put("secret", secret);
+					allow.put("server", "");
+					
+					for(Connection connect: allServers){
+						connect.writeMsg(allow.toJSONString());
+					}
+					log.info("Sent LOCK_ALLOWED to all the servers");
+					
+				}
+				break;
+				
+			case "LOCK_DENIED":
+				username = messageObject.get("username").toString();
+				secret = messageObject.get("secret").toString();
+				
+				if (registeredClients.containsKey(username)){
+					registeredClients.remove(username);
+				}
+				if(waitingUsername.equals(username)){
+					respondCount++;
+					lockAllow = false;
+					
+				}
+				break;
+				
+			case "LOCK_ALLOWED":
+				username = messageObject.get("username").toString();
+				secret = messageObject.get("secret").toString();
+				
+				if(waitingUsername.equals(username)){
+					respondCount++;
+				}
+				log.info("---------->respondCount= "+respondCount);
+				break;
 			}
 		} catch (org.json.simple.parser.ParseException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 
-		// for (Connection connection : connections) {
-		// connection.writeMsg(msg);
-		// }
+
 		return false;
 	}
 
@@ -226,8 +284,10 @@ public class ControlSolution extends Control {
 	 * Other methods as needed
 	 */
 
-	@SuppressWarnings("unchecked")
-	public void register(String username, String secret, Connection con) {
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	public synchronized void register(String username, String secret, Connection con) {
+		
+		
 		Iterator it = registeredClients.keySet().iterator();
 		boolean exist = false;
 		if (!allClients.containsKey(con)) {
@@ -252,10 +312,50 @@ public class ControlSolution extends Control {
 
 				// broadcast to all the servers
 				// lock request
-				JSONObject success = new JSONObject();
-				success.put("command", "REGISTER_SUCCESS");
-				success.put("info", "register success for " + username);
-				con.writeMsg(success.toJSONString());
+				
+				JSONObject lock = new JSONObject();
+				lock.put("command", "LOCK_REQUEST");
+				lock.put("username", username);
+				lock.put("secret", secret);
+				
+				for(Connection connect: allServers){
+					connect.writeMsg(lock.toJSONString());
+				}
+				waitingUsername = username;
+				waitingSecret = secret;
+				
+				//check count and flag
+				log.info("---------Server Size---------"+allServers.size());
+				log.info("---------respond Size---------"+respondCount);
+				while(respondCount!=allServers.size()){
+					try {
+						wait(5000);
+					} catch (InterruptedException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+				}
+				if(respondCount==allServers.size()){
+					log.info("---------1.I'm executed---------");
+					if (lockAllow == true){
+						log.info("---------2.I'm executed---------");
+						JSONObject success = new JSONObject();
+						success.put("command", "REGISTER_SUCCESS");
+						success.put("info", "register success for " + username);
+						con.writeMsg(success.toJSONString());	
+						respondCount = 0;
+						log.info("***lock Allow = true ***");
+					}else{
+						JSONObject fail = new JSONObject();
+						fail.put("command", "REGISTER_FAILED");
+						fail.put("info", username+ " is already registered with the system");
+						con.writeMsg(fail.toJSONString());
+						log.info("***lock Allow = false ***");
+						respondCount = 0;
+						lockAllow = true;
+						
+					}
+				}
 
 			}
 		} else {
@@ -268,6 +368,7 @@ public class ControlSolution extends Control {
 		}
 
 	}
+	
 
 	@SuppressWarnings("unchecked")
 	public void login(String username, String secret, Connection con) {

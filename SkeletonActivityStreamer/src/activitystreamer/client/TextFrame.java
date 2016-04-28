@@ -47,7 +47,6 @@ public class TextFrame extends JFrame implements ActionListener {
 		lineBorder = BorderFactory.createTitledBorder(BorderFactory.createLineBorder(Color.lightGray),"JSON output, received from server");
 		outputPanel.setBorder(lineBorder);
 		outputPanel.setName("Text output");
-		
 		inputText = new JTextArea();
 		JScrollPane scrollPane = new JScrollPane(inputText);
 		inputPanel.add(scrollPane,BorderLayout.CENTER);
@@ -61,7 +60,6 @@ public class TextFrame extends JFrame implements ActionListener {
 		sendButton.addActionListener(this);
 		disconnectButton.addActionListener(this);
 		
-		
 		outputText = new JTextArea();
 		scrollPane = new JScrollPane(outputText);
 		outputPanel.add(scrollPane,BorderLayout.CENTER);
@@ -69,7 +67,6 @@ public class TextFrame extends JFrame implements ActionListener {
 		mainPanel.add(inputPanel);
 		mainPanel.add(outputPanel);
 		add(mainPanel);
-		
 		setLocationRelativeTo(null); 
 		setSize(680,268);
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -104,4 +101,5 @@ public class TextFrame extends JFrame implements ActionListener {
 			ClientSolution.getInstance().disconnect();
 		}
 	}
+
 }
