@@ -260,7 +260,7 @@ public class ControlSolution extends Control {
 					
 					JSONObject broadcast = new JSONObject();
 					broadcast.put("command","ACTIVITY_BROADCAST");
-					broadcast.put("activity",activityObject.toJSONString());
+					broadcast.put("activity",activityObject);
 					
 					for(Connection connect:allServers){
 						connect.writeMsg(broadcast.toJSONString());
