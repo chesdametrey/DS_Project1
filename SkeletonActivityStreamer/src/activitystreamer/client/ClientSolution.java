@@ -1,6 +1,5 @@
 package activitystreamer.client;
 
-//just some modify to check if I can push on git
 import java.io.*;
 import java.net.Socket;
 
@@ -107,18 +106,6 @@ public class ClientSolution extends Thread {
 			outToServer.writeBytes(activity.toJSONString() + '\n');
 			System.out.println("Msg sent");
 			
-			/*if(activityObj.get("command").equals("LOGOUT")){
-				textFrame.setVisible(false);
-			}
-			//save secret key to Settings
-			if(activityObj.containsKey("secret")){
-				Settings.setSecret(activityObj.get("secret").toString());
-			}
-			//save user name to Settings
-			if(activityObj.containsKey("username")){
-				Settings.setUsername(activityObj.get("username").toString());
-			}*/
-			
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -147,15 +134,6 @@ public class ClientSolution extends Thread {
 		logout.put("command","LOGOUT");
 		this.sendObject(logout);
 		
-		
-		/*try {
-			setTerm(true);
-			clientSocket.close();
-			System.out.println("Connection closed.");
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}*/
 	}
 
 	// the client's run method, to receive messages
@@ -171,9 +149,9 @@ public class ClientSolution extends Thread {
 				textFrame.setOutputText(obj);
 				
 				if(obj.get("command").equals("REDIRECT")){
-					Socket clientSocket = new Socket(obj.get("hostname").toString(), Integer.parseInt(obj.get("port").toString()));
-					inFromServer = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-					outToServer = new DataOutputStream(clientSocket.getOutputStream());
+					this.clientSocket = new Socket(obj.get("hostname").toString(), Integer.parseInt(obj.get("port").toString()));
+					this.inFromServer = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+					this.outToServer = new DataOutputStream(clientSocket.getOutputStream());
 					log.info("***Established new redirect connection***");
 
 					

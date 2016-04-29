@@ -26,7 +26,7 @@ public class ControlSolution extends Control {
 	Hashtable<String, String> registeredClients = new Hashtable<String, String>();
 	ArrayList<Connection> allServers = new ArrayList<Connection>();
 	Hashtable<Connection, String> allClients = new Hashtable<Connection, String>();
-	ArrayList<ServerAnnounce> serverAnnounces = new ArrayList<ServerAnnounce>();
+	static ArrayList<ServerAnnounce> serverAnnounces = new ArrayList<ServerAnnounce>();
 	String wholeSecret = null;
 	private String ID = null;
 
@@ -93,8 +93,6 @@ public class ControlSolution extends Control {
 		con.writeMsg(serverMessage.toString());
 
 		allServers.add(con);
-		//ServerAnnounce sa = new ServerAnnounce(con, Settings.getSecret(), 0,"", 0);
-		//serverAnnounces.add(sa);
 		return con;
 	}
 
@@ -107,6 +105,7 @@ public class ControlSolution extends Control {
 		/*
 		 * do additional things here
 		 */
+		con.closeCon();
 	}
 
 	/*
@@ -134,15 +133,8 @@ public class ControlSolution extends Control {
 				username = messageObject.get("username").toString();
 				secret = messageObject.get("secret").toString();
 				
-				/* if(!allClients.containsKey(username)){ */
 				register(username, secret, con);
-				/*
-				 * }else{ JSONObject invalid = new JSONObject();
-				 * invalid.put("command", "INVALID_MESSAGE");
-				 * invalid.put("info",
-				 * "Can not register new user while you are logged in");
-				 * con.writeMsg(invalid.toJSONString()); }
-				 */
+		
 				log.debug("REGISTER");
 				break;
 			case "LOGIN":
@@ -153,9 +145,10 @@ public class ControlSolution extends Control {
 
 				break;
 			case "LOGOUT":
-				// close connection
 				// remove connection from client hash table
 				allClients.remove(con);
+				// close connection
+				this.connectionClosed(con);
 				log.debug("LOGOUT");
 				break;
 
@@ -163,8 +156,6 @@ public class ControlSolution extends Control {
 				secret = messageObject.get("secret").toString();
 				if (secret.equals(Settings.getSecret())) {
 					allServers.add(con);
-					//ServerAnnounce sa = new ServerAnnounce(con, secret, 0, "",0);
-					//serverAnnounces.add(sa);
 					log.info("AUTHENTICATED***YAY**Size of SA = ***"
 							+ serverAnnounces.size());
 
@@ -328,11 +319,7 @@ public class ControlSolution extends Control {
 		for (Connection c : allServers) {
 			c.writeMsg(serverAnnounce.toJSONString());
 		}
-		/*
-		 * for(Connection c: this.connections){
-		 * c.writeMsg(serverAnnounce.toJSONString()); }
-		 */
-		log.info("**********");
+
 		return false;
 	}
 
@@ -346,18 +333,20 @@ public class ControlSolution extends Control {
 		String msgID = messageObject.get("id").toString();
 		int load = Integer.parseInt(messageObject.get("load")
 				.toString());
+		log.info("=======LOAD is: "+load);
 
 		 //check if already that one already exists
 		boolean SerInformationExist=false;
-		//log.info("=======msgID"+msgID);
 		for(int i=0;i<serverAnnounces.size();i++){
-			//log.info("=======getID"+serverAnnounces.get(i).getID());
 			if(msgID.equals(serverAnnounces.get(i).getID())){
-				//log.info("=======I'm here!!!!!");
+				serverAnnounces.get(i).setHostname(hostname);
+				serverAnnounces.get(i).setLoad(load);
+				serverAnnounces.get(i).setPort(port);
+				log.info("=======sa LOAD:"+serverAnnounces.get(i).getLoad());
 				SerInformationExist=true;
 			}
 		}
-		//log.info("*****EXIST"+SerInformationExist);
+		
 		if(!SerInformationExist){
 			//add to the serverAnnounce array
 			ServerAnnounce sA=new ServerAnnounce();
@@ -366,6 +355,7 @@ public class ControlSolution extends Control {
 			sA.setLoad(load);
 			sA.setPort(port);
 			serverAnnounces.add(sA);
+			log.info("=======sa LOAD:"+sA.getLoad());
 		}
 		//send that message to other server related to it except the one send the message
 		for(Connection connect:allServers){
@@ -429,9 +419,9 @@ public class ControlSolution extends Control {
 					}
 				}
 				if(respondCount==serverAnnounces.size()){
-					log.info("---------1.I'm executed---------");
+					//log.info("---------1.I'm executed---------");
 					if (lockAllow == true){
-						log.info("---------2.I'm executed---------");
+						//log.info("---------2.I'm executed---------");
 						JSONObject success = new JSONObject();
 						success.put("command", "REGISTER_SUCCESS");
 						success.put("info", "register success for " + username);
@@ -466,15 +456,13 @@ public class ControlSolution extends Control {
 
 	@SuppressWarnings("unchecked")
 	public void login(String username, String secret, Connection con) {
-		// Iterator it = registeredClients.keySet().iterator();
-		// while (it.hasNext()) {
-		// String name = (String) it.next();
+		
 		if (registeredClients.containsKey(username)) {
 
 			String key = registeredClients.get(username);
 
 			if (key.equals(secret)) {
-				log.info("login sucess");
+				//log.info("login sucess");
 				JSONObject success = new JSONObject();
 				success.put("command", "LOGIN_SUCCESS");
 				success.put("info", "logged in as user " + username);
@@ -539,7 +527,7 @@ public class ControlSolution extends Control {
 	class ServerAnnounce {
 
 		String id=null;
-		int load=0;
+		int load;
 		String hostname=null;
 		int port;
 
