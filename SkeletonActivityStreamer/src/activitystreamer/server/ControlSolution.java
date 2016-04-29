@@ -293,6 +293,12 @@ public class ControlSolution extends Control {
 					}
 				}
 				break;
+				default:
+					JSONObject invalid = new JSONObject();
+					invalid.put("command", "INVALID_MESSAGE");
+					invalid.put("info","Invalid Message Sent");
+					con.writeMsg(invalid.toJSONString());
+					break;
 			}
 		} catch (org.json.simple.parser.ParseException e) {
 			// TODO Auto-generated catch block
