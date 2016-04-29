@@ -32,8 +32,8 @@ public class ControlSolution extends Control {
 
 	int respondCount = 0;
 	boolean lockAllow = true;
-	String waitingUsername = null;
-	String waitingSecret = null;
+	String waitingUsername = "";
+	String waitingSecret = "";
 	// since control and its subclasses are singleton, we get the singleton this
 	// way
 	public static ControlSolution getInstance() {
@@ -207,7 +207,7 @@ public class ControlSolution extends Control {
 					allow.put("command", "LOCK_ALLOWED");
 					allow.put("username", username);
 					allow.put("secret", secret);
-					allow.put("server", "");
+					allow.put("server", ID);
 					
 					for(Connection connect: allServers){
 						connect.writeMsg(allow.toJSONString());
@@ -273,7 +273,7 @@ public class ControlSolution extends Control {
 					Iterator it = allClients.keySet().iterator();
 					while (it.hasNext()) {
 						Connection connect = (Connection)it.next();
-						connect.writeMsg(msg);			
+						connect.writeMsg(broadcast.toJSONString());			
 					}
 					
 				}else{
@@ -349,15 +349,15 @@ public class ControlSolution extends Control {
 
 		 //check if already that one already exists
 		boolean SerInformationExist=false;
-		log.info("=======msgID"+msgID);
+		//log.info("=======msgID"+msgID);
 		for(int i=0;i<serverAnnounces.size();i++){
-			log.info("=======getID"+serverAnnounces.get(i).getID());
+			//log.info("=======getID"+serverAnnounces.get(i).getID());
 			if(msgID.equals(serverAnnounces.get(i).getID())){
-				log.info("=======I'm here!!!!!");
+				//log.info("=======I'm here!!!!!");
 				SerInformationExist=true;
 			}
 		}
-		log.info("*****EXIST"+SerInformationExist);
+		//log.info("*****EXIST"+SerInformationExist);
 		if(!SerInformationExist){
 			//add to the serverAnnounce array
 			ServerAnnounce sA=new ServerAnnounce();
