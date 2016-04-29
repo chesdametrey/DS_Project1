@@ -20,20 +20,22 @@ import activitystreamer.util.Settings;
 public class ControlSolution extends Control {
 	private static final Logger log = LogManager.getLogger();
 
+	/*
+	 * additional variables as needed
+	 */
 	Hashtable<String, String> registeredClients = new Hashtable<String, String>();
 	ArrayList<Connection> allServers = new ArrayList<Connection>();
 	Hashtable<Connection, String> allClients = new Hashtable<Connection, String>();
 	static ArrayList<ServerAnnounce> serverAnnounces = new ArrayList<ServerAnnounce>();
 	String wholeSecret = null;
 	private String ID = null;
+
 	int respondCount = 0;
 	boolean lockAllow = true;
 	String waitingUsername = "";
 	String waitingSecret = "";
-	
 	// since control and its subclasses are singleton, we get the singleton this
 	// way
-	
 	public static ControlSolution getInstance() {
 		if (control == null) {
 			control = new ControlSolution();
@@ -43,6 +45,10 @@ public class ControlSolution extends Control {
 
 	public ControlSolution() {
 		super();
+		/*
+		 * Do some further initialization here if necessary
+		 */
+		
 		// check if we should initiate a connection and do so if necessary
 		initiateConnection();
 		// start the server's activity loop
@@ -52,7 +58,7 @@ public class ControlSolution extends Control {
 		if(Settings.getRemoteHostname() == null){
 			wholeSecret=Settings.nextSecret();
 			Settings.setSecret(wholeSecret);
-			log.info("Global Server Secret is: "+wholeSecret);
+			log.info("Whole Secret is: "+wholeSecret);
 		}
 		ID=Settings.nextSecret();
 	}
@@ -63,6 +69,11 @@ public class ControlSolution extends Control {
 	@Override
 	public Connection incomingConnection(Socket s) throws IOException {
 		Connection con = super.incomingConnection(s);
+		/*
+		 * do additional things here
+		 */
+		// load balancing
+
 		return con;
 	}
 
@@ -107,10 +118,11 @@ public class ControlSolution extends Control {
 		/*
 		 * do additional work here return true/false as appropriate
 		 */
+		log.info("Msg received1");
 		String command, username, secret;
 		JSONParser parser = new JSONParser();
 		JSONObject messageObject;
-		log.info("Message received ");
+		log.info("Msg received");
 		log.info(msg);
 		try {
 			messageObject = (JSONObject) parser.parse(msg);
@@ -120,30 +132,32 @@ public class ControlSolution extends Control {
 			case "REGISTER":
 				username = messageObject.get("username").toString();
 				secret = messageObject.get("secret").toString();
-				register(username, secret, con);
-				log.info("REGISTER");
-				break;
 				
+				register(username, secret, con);
+		
+				log.debug("REGISTER");
+				break;
 			case "LOGIN":
 				username = messageObject.get("username").toString();
 				secret = messageObject.get("secret").toString();
 				login(username, secret, con);
-				log.info("LOGIN");
+				log.debug("LOGIN");
+
 				break;
-				
 			case "LOGOUT":
 				// remove connection from client hash table
 				allClients.remove(con);
 				// close connection
 				this.connectionClosed(con);
-				log.info("LOGOUT");
+				log.debug("LOGOUT");
 				break;
 
 			case "AUTHENTICATE":
 				secret = messageObject.get("secret").toString();
 				if (secret.equals(Settings.getSecret())) {
 					allServers.add(con);
-					log.info("New Server AUTHENTICATED");
+					log.info("AUTHENTICATED***YAY**Size of SA = ***"
+							+ serverAnnounces.size());
 
 				}else{
 					JSONObject fail = new JSONObject();
@@ -154,15 +168,12 @@ public class ControlSolution extends Control {
 					this.connectionClosed(con);
 				}
 				break;
-				
 			case "AUTHENTICATION_FAIL":
 				this.connectionClosed(con);
 				break;
-				
 			case "SERVER_ANNOUNCE":
 				receiveServerAnnounce(messageObject,con);
 				break;
-				
 			case "LOCK_REQUEST":
 				//redirect to other servers
 				for(Connection connect:allServers){
@@ -234,6 +245,7 @@ public class ControlSolution extends Control {
 				if(waitingUsername.equals(username)){
 					respondCount++;
 				}
+				log.info("---------->respondCount= "+respondCount);
 				break;
 				
 			case "ACTIVITY_MESSAGE":
@@ -281,6 +293,12 @@ public class ControlSolution extends Control {
 					}
 				}
 				break;
+				default:
+					JSONObject invalid = new JSONObject();
+					invalid.put("command", "INVALID_MESSAGE");
+					invalid.put("info","Invalid Message Sent");
+					con.writeMsg(invalid.toJSONString());
+					break;
 			}
 		} catch (org.json.simple.parser.ParseException e) {
 			// TODO Auto-generated catch block
@@ -295,7 +313,6 @@ public class ControlSolution extends Control {
 	 * Called once every few seconds Return true if server should shut down,
 	 * false otherwise
 	 */
-	@SuppressWarnings("unchecked")
 	@Override
 	public boolean doActivity() {
 		/*
@@ -326,6 +343,7 @@ public class ControlSolution extends Control {
 		String msgID = messageObject.get("id").toString();
 		int load = Integer.parseInt(messageObject.get("load")
 				.toString());
+		log.info("=======LOAD is: "+load);
 
 		 //check if already that one already exists
 		boolean SerInformationExist=false;
@@ -334,7 +352,7 @@ public class ControlSolution extends Control {
 				serverAnnounces.get(i).setHostname(hostname);
 				serverAnnounces.get(i).setLoad(load);
 				serverAnnounces.get(i).setPort(port);
-				//log.info("=======sa LOAD:"+serverAnnounces.get(i).getLoad());
+				log.info("=======sa LOAD:"+serverAnnounces.get(i).getLoad());
 				SerInformationExist=true;
 			}
 		}
@@ -347,7 +365,7 @@ public class ControlSolution extends Control {
 			sA.setLoad(load);
 			sA.setPort(port);
 			serverAnnounces.add(sA);
-			//log.info("=======sa LOAD:"+sA.getLoad());
+			log.info("=======sa LOAD:"+sA.getLoad());
 		}
 		//send that message to other server related to it except the one send the message
 		for(Connection connect:allServers){
@@ -356,6 +374,7 @@ public class ControlSolution extends Control {
 			}
 		}
 
+		log.info("*****WORKING*****");
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
@@ -400,8 +419,8 @@ public class ControlSolution extends Control {
 				waitingSecret = secret;
 				
 				//check count and flag
-				//("---------Server Size---------"+serverAnnounces.size());
-				//log.info("---------respond Size---------"+respondCount);
+				log.info("---------Server Size---------"+serverAnnounces.size());
+				log.info("---------respond Size---------"+respondCount);
 				while(respondCount!=serverAnnounces.size()){
 					try {
 						wait(5000);
@@ -416,17 +435,17 @@ public class ControlSolution extends Control {
 						//log.info("---------2.I'm executed---------");
 						JSONObject success = new JSONObject();
 						success.put("command", "REGISTER_SUCCESS");
-						success.put("info", "register success for " + username);
+						success.put("info", "register success for " + username+" secret is: "+secret);
 						con.writeMsg(success.toJSONString());	
 						respondCount = 0;
-						log.info("---lock Allow = true---");
+						log.info("***lock Allow = true ***");
 						
 					}else{
 						JSONObject fail = new JSONObject();
 						fail.put("command", "REGISTER_FAILED");
 						fail.put("info", username+ " is already registered with the system");
 						con.writeMsg(fail.toJSONString());
-						log.info("---lock Allow = false---");
+						log.info("***lock Allow = false ***");
 						respondCount = 0;
 						lockAllow = true;
 						
@@ -449,52 +468,14 @@ public class ControlSolution extends Control {
 
 	@SuppressWarnings("unchecked")
 	public void login(String username, String secret, Connection con) {
-		
-		if (registeredClients.containsKey(username)) {
+		if(username.equals("anonymous")&&secret.equals("")){
+			callInLogin(username, secret, con);
+		}else if (registeredClients.containsKey(username)) {
 
 			String key = registeredClients.get(username);
 
 			if (key.equals(secret)) {
-				//log.info("login sucess");
-				JSONObject success = new JSONObject();
-				success.put("command", "LOGIN_SUCCESS");
-				success.put("info", "logged in as user " + username);
-				con.writeMsg(success.toString());
-				// load balancing
-				int ownLoad = allClients.size();
-				int smallestL = 0;
-				int small = 0;
-				for (int i = 0; i < serverAnnounces.size(); i++) {
-					if (i == 0) {
-						smallestL = serverAnnounces.get(i).getLoad();
-					} else {
-						if (serverAnnounces.get(i).getLoad() < smallestL) {
-							smallestL = serverAnnounces.get(i).getLoad();
-							small = i;
-						}
-					}
-				}
-				//log.info("smallestL = " + smallestL + "ownLoad = "+ ownLoad);
-				if (smallestL <= ownLoad - 2) {
-					// redirect,establish a new connection
-					JSONObject redirect = new JSONObject();
-					redirect.put("command", "REDIRECT");
-					redirect.put("hostname", serverAnnounces.get(small)
-							.getHostname());
-					redirect.put("port", serverAnnounces.get(small).getPort());
-					con.writeMsg(redirect.toJSONString());
-
-					log.info("Host=> "
-							+ serverAnnounces.get(small).getHostname()
-							+ " Port=> "
-							+ serverAnnounces.get(small).getPort());
-					this.connectionClosed(con);
-
-				} else {
-					log.info("no new connection");
-					allClients.put(con, username);
-				}
-
+				callInLogin(username, secret, con);
 			} else {
 				JSONObject fail = new JSONObject();
 				fail.put("command", "LOGIN_FAILED");
@@ -515,6 +496,51 @@ public class ControlSolution extends Control {
 			this.connectionClosed(con);
 		}
 
+	}
+	public void callInLogin(String username, String secret, Connection con){
+		JSONObject success = new JSONObject();
+		success.put("command", "LOGIN_SUCCESS");
+		success.put("info", "logged in as user " + username);
+		con.writeMsg(success.toString());
+		// load balancing
+		if(serverAnnounces.size()>0){
+		int ownLoad = allClients.size();
+		int smallestL = 0;
+		int small = 0;
+		for (int i = 0; i < serverAnnounces.size(); i++) {
+			if (i == 0) {
+				smallestL = serverAnnounces.get(i).getLoad();
+			} else {
+				if (serverAnnounces.get(i).getLoad() < smallestL) {
+					smallestL = serverAnnounces.get(i).getLoad();
+					small = i;
+				}
+			}
+		}
+		log.info("***smallestL = " + smallestL + "**ownLoad = "
+				+ ownLoad);
+		if (smallestL <= ownLoad - 2) {
+			// redirect,establish a new connection
+			JSONObject redirect = new JSONObject();
+			redirect.put("command", "REDIRECT");
+			redirect.put("hostname", serverAnnounces.get(small)
+					.getHostname());
+			redirect.put("port", serverAnnounces.get(small).getPort());
+			con.writeMsg(redirect.toJSONString());
+
+			log.info("***host***"
+					+ serverAnnounces.get(small).getHostname()
+					+ "****port**"
+					+ serverAnnounces.get(small).getPort());
+			this.connectionClosed(con);
+
+		} else {
+			log.info("no new connection");
+			allClients.put(con, username);
+		}
+		}else{
+			allClients.put(con, username);
+		}
 	}
 
 	class ServerAnnounce {

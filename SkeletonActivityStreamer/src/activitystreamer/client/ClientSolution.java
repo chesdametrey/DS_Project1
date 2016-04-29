@@ -2,11 +2,13 @@ package activitystreamer.client;
 
 import java.io.*;
 import java.net.Socket;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
+
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
@@ -156,7 +158,7 @@ public class ClientSolution extends Thread {
 					this.clientSocket = new Socket(obj.get("hostname").toString(), Integer.parseInt(obj.get("port").toString()));
 					this.inFromServer = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
 					this.outToServer = new DataOutputStream(clientSocket.getOutputStream());
-					log.info("---Established new redirect connection---");
+					log.info("***Established new redirect connection***");
 
 					
 					JSONObject login = new JSONObject();
@@ -166,7 +168,7 @@ public class ClientSolution extends Thread {
 					login.put("secret", Settings.getSecret());
 					
 					this.sendObject(login);
-					//log.info("---sent activity object---");
+					log.info("**sent activity object**");
 					
 					
 				}
