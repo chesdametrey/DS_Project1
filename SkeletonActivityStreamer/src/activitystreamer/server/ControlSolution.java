@@ -9,7 +9,6 @@ import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Hashtable;
 import java.util.Iterator;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.json.simple.JSONObject;
@@ -45,10 +44,6 @@ public class ControlSolution extends Control {
 
 	public ControlSolution() {
 		super();
-		/*
-		 * Do some further initialization here if necessary
-		 */
-		
 		// check if we should initiate a connection and do so if necessary
 		initiateConnection();
 		// start the server's activity loop
@@ -69,11 +64,6 @@ public class ControlSolution extends Control {
 	@Override
 	public Connection incomingConnection(Socket s) throws IOException {
 		Connection con = super.incomingConnection(s);
-		/*
-		 * do additional things here
-		 */
-		// load balancing
-
 		return con;
 	}
 
@@ -102,9 +92,6 @@ public class ControlSolution extends Control {
 	@Override
 	public void connectionClosed(Connection con) {
 		super.connectionClosed(con);
-		/*
-		 * do additional things here
-		 */
 		con.closeCon();
 	}
 
@@ -130,18 +117,30 @@ public class ControlSolution extends Control {
 			command = messageObject.get("command").toString();
 			switch (command) {
 			case "REGISTER":
-				username = messageObject.get("username").toString();
-				secret = messageObject.get("secret").toString();
-				
-				register(username, secret, con);
-		
-				log.debug("REGISTER");
+				if(messageObject.containsKey("username") && messageObject.containsKey("secret")){
+					username = messageObject.get("username").toString();
+					secret = messageObject.get("secret").toString();
+					register(username, secret, con);
+					log.debug("REGISTER");
+				}else{
+					JSONObject invalid = new JSONObject();
+					invalid.put("command", "INVALID_MESSAGE");
+					invalid.put("info","Invalid Message Sent");
+					con.writeMsg(invalid.toJSONString());
+				}
 				break;
 			case "LOGIN":
-				username = messageObject.get("username").toString();
-				secret = messageObject.get("secret").toString();
-				login(username, secret, con);
-				log.debug("LOGIN");
+				if(messageObject.containsKey("username") && messageObject.containsKey("secret")){
+					username = messageObject.get("username").toString();
+					secret = messageObject.get("secret").toString();
+					login(username, secret, con);
+					log.debug("LOGIN");
+				}else{
+					JSONObject invalid = new JSONObject();
+					invalid.put("command", "INVALID_MESSAGE");
+					invalid.put("info","Invalid Message Sent");
+					con.writeMsg(invalid.toJSONString());
+				}
 
 				break;
 			case "LOGOUT":
@@ -156,8 +155,7 @@ public class ControlSolution extends Control {
 				secret = messageObject.get("secret").toString();
 				if (secret.equals(Settings.getSecret())) {
 					allServers.add(con);
-					log.info("AUTHENTICATED***YAY**Size of SA = ***"
-							+ serverAnnounces.size());
+					log.info("New Server AUTHENTICATED");
 
 				}else{
 					JSONObject fail = new JSONObject();
@@ -168,12 +166,15 @@ public class ControlSolution extends Control {
 					this.connectionClosed(con);
 				}
 				break;
+				
 			case "AUTHENTICATION_FAIL":
 				this.connectionClosed(con);
 				break;
+				
 			case "SERVER_ANNOUNCE":
 				receiveServerAnnounce(messageObject,con);
 				break;
+				
 			case "LOCK_REQUEST":
 				//redirect to other servers
 				for(Connection connect:allServers){
@@ -192,10 +193,8 @@ public class ControlSolution extends Control {
 					for(Connection connect: allServers){
 						connect.writeMsg(deny.toJSONString());
 					}
-					
 					log.info("Sent LOCK_DENIED to all the servers");
-					
-					
+						
 				}else{
 					registeredClients.put(username, secret); 
 					JSONObject allow = new JSONObject();
@@ -245,7 +244,7 @@ public class ControlSolution extends Control {
 				if(waitingUsername.equals(username)){
 					respondCount++;
 				}
-				log.info("---------->respondCount= "+respondCount);
+				//log.info("---------->respondCount= "+respondCount);
 				break;
 				
 			case "ACTIVITY_MESSAGE":
@@ -293,12 +292,13 @@ public class ControlSolution extends Control {
 					}
 				}
 				break;
-				default:
-					JSONObject invalid = new JSONObject();
-					invalid.put("command", "INVALID_MESSAGE");
-					invalid.put("info","Invalid Message Sent");
-					con.writeMsg(invalid.toJSONString());
-					break;
+				
+			default:
+				JSONObject invalid = new JSONObject();
+				invalid.put("command", "INVALID_MESSAGE");
+				invalid.put("info","Invalid Message Sent");
+				con.writeMsg(invalid.toJSONString());
+				break;
 			}
 		} catch (org.json.simple.parser.ParseException e) {
 			// TODO Auto-generated catch block
@@ -313,6 +313,7 @@ public class ControlSolution extends Control {
 	 * Called once every few seconds Return true if server should shut down,
 	 * false otherwise
 	 */
+	@SuppressWarnings("unchecked")
 	@Override
 	public boolean doActivity() {
 		/*
@@ -343,7 +344,7 @@ public class ControlSolution extends Control {
 		String msgID = messageObject.get("id").toString();
 		int load = Integer.parseInt(messageObject.get("load")
 				.toString());
-		log.info("=======LOAD is: "+load);
+		//log.info("=======LOAD is: "+load);
 
 		 //check if already that one already exists
 		boolean SerInformationExist=false;
@@ -352,7 +353,7 @@ public class ControlSolution extends Control {
 				serverAnnounces.get(i).setHostname(hostname);
 				serverAnnounces.get(i).setLoad(load);
 				serverAnnounces.get(i).setPort(port);
-				log.info("=======sa LOAD:"+serverAnnounces.get(i).getLoad());
+				//log.info("=======SA LOAD:"+serverAnnounces.get(i).getLoad());
 				SerInformationExist=true;
 			}
 		}
@@ -365,7 +366,7 @@ public class ControlSolution extends Control {
 			sA.setLoad(load);
 			sA.setPort(port);
 			serverAnnounces.add(sA);
-			log.info("=======sa LOAD:"+sA.getLoad());
+			//log.info("=======SA LOAD:"+sA.getLoad());
 		}
 		//send that message to other server related to it except the one send the message
 		for(Connection connect:allServers){
@@ -374,7 +375,6 @@ public class ControlSolution extends Control {
 			}
 		}
 
-		log.info("*****WORKING*****");
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
@@ -383,6 +383,7 @@ public class ControlSolution extends Control {
 		
 		Iterator it = registeredClients.keySet().iterator();
 		boolean exist = false;
+		//check of the user name is already registered
 		if (!allClients.containsKey(con)) {
 			while (it.hasNext()) {
 				String name = (String) it.next();
@@ -401,17 +402,17 @@ public class ControlSolution extends Control {
 			}
 
 			if (!exist) {
+				//if the user name hasn't been registered
 				registeredClients.put(username, secret);
 				log.info("username ->" + username);
 
-				// broadcast to all the servers
-				// lock request
-				
+				//Lock request object
 				JSONObject lock = new JSONObject();
 				lock.put("command", "LOCK_REQUEST");
 				lock.put("username", username);
 				lock.put("secret", secret);
-				
+				// broadcast to all the servers
+				// lock request	
 				for(Connection connect: allServers){
 					connect.writeMsg(lock.toJSONString());
 				}
@@ -419,16 +420,18 @@ public class ControlSolution extends Control {
 				waitingSecret = secret;
 				
 				//check count and flag
-				log.info("---------Server Size---------"+serverAnnounces.size());
-				log.info("---------respond Size---------"+respondCount);
+				//log.info("---------Server Size---------"+serverAnnounces.size());
+				//log.info("---------respond Size---------"+respondCount);
 				while(respondCount!=serverAnnounces.size()){
 					try {
-						wait(5000);
+						wait(3000);
 					} catch (InterruptedException e) {
 						// TODO Auto-generated catch block
 						e.printStackTrace();
 					}
 				}
+				
+				//Server got all the responses from other servers
 				if(respondCount==serverAnnounces.size()){
 					//log.info("---------1.I'm executed---------");
 					if (lockAllow == true){
@@ -438,14 +441,14 @@ public class ControlSolution extends Control {
 						success.put("info", "register success for " + username+" secret is: "+secret);
 						con.writeMsg(success.toJSONString());	
 						respondCount = 0;
-						log.info("***lock Allow = true ***");
+						log.info("---lock Allow = true---");
 						
 					}else{
 						JSONObject fail = new JSONObject();
 						fail.put("command", "REGISTER_FAILED");
 						fail.put("info", username+ " is already registered with the system");
 						con.writeMsg(fail.toJSONString());
-						log.info("***lock Allow = false ***");
+						log.info("---lock Allow = false---");
 						respondCount = 0;
 						lockAllow = true;
 						
@@ -497,6 +500,7 @@ public class ControlSolution extends Control {
 		}
 
 	}
+	@SuppressWarnings("unchecked")
 	public void callInLogin(String username, String secret, Connection con){
 		JSONObject success = new JSONObject();
 		success.put("command", "LOGIN_SUCCESS");
@@ -517,8 +521,7 @@ public class ControlSolution extends Control {
 				}
 			}
 		}
-		log.info("***smallestL = " + smallestL + "**ownLoad = "
-				+ ownLoad);
+		//log.info("***smallestL = " + smallestL + "**ownLoad = "+ ownLoad);
 		if (smallestL <= ownLoad - 2) {
 			// redirect,establish a new connection
 			JSONObject redirect = new JSONObject();
@@ -528,10 +531,8 @@ public class ControlSolution extends Control {
 			redirect.put("port", serverAnnounces.get(small).getPort());
 			con.writeMsg(redirect.toJSONString());
 
-			log.info("***host***"
-					+ serverAnnounces.get(small).getHostname()
-					+ "****port**"
-					+ serverAnnounces.get(small).getPort());
+			log.info("Host =>"+ serverAnnounces.get(small).getHostname()
+					+ " Port =>"+ serverAnnounces.get(small).getPort());
 			this.connectionClosed(con);
 
 		} else {
