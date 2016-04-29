@@ -165,7 +165,11 @@ public class ControlSolution extends Control {
 					fail.put("info","the supplied secret is incorrect: "+secret);
 					con.writeMsg(fail.toJSONString());
 					//close connection 
+					this.connectionClosed(con);
 				}
+				break;
+			case "AUTHENTICATION_FAIL":
+				this.connectionClosed(con);
 				break;
 			case "SERVER_ANNOUNCE":
 				receiveServerAnnounce(messageObject,con);
@@ -377,7 +381,6 @@ public class ControlSolution extends Control {
 			while (it.hasNext()) {
 				String name = (String) it.next();
 				if (name.equals(username)) {
-					// close connection
 					exist = true;
 					log.info("USERNAME exist");
 					JSONObject fail = new JSONObject();
@@ -385,6 +388,8 @@ public class ControlSolution extends Control {
 					fail.put("info", username
 							+ " is already registered with the system");
 					con.writeMsg(fail.toJSONString());
+					// close connection
+					this.connectionClosed(con);
 				}
 
 			}
@@ -438,6 +443,7 @@ public class ControlSolution extends Control {
 						respondCount = 0;
 						lockAllow = true;
 						
+						this.connectionClosed(con);
 					}
 				}
 
@@ -484,8 +490,6 @@ public class ControlSolution extends Control {
 				log.info("***smallestL = " + smallestL + "**ownLoad = "
 						+ ownLoad);
 				if (smallestL <= ownLoad - 2) {
-					// close the connect
-					// con.closeCon();
 					// redirect,establish a new connection
 					JSONObject redirect = new JSONObject();
 					redirect.put("command", "REDIRECT");
@@ -498,6 +502,7 @@ public class ControlSolution extends Control {
 							+ serverAnnounces.get(small).getHostname()
 							+ "****port**"
 							+ serverAnnounces.get(small).getPort());
+					this.connectionClosed(con);
 
 				} else {
 					log.info("no new connection");
@@ -511,6 +516,7 @@ public class ControlSolution extends Control {
 						"1. attempt to login with invalid username or wrong secret");
 				con.writeMsg(fail.toJSONString());
 				// close connection
+				this.connectionClosed(con);
 			}
 
 		} else {
@@ -520,6 +526,7 @@ public class ControlSolution extends Control {
 					"2. attempt to login with invalid username or wrong secret");
 			con.writeMsg(fail.toJSONString());
 			// close connection
+			this.connectionClosed(con);
 		}
 
 	}

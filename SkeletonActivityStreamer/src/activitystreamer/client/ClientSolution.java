@@ -66,7 +66,7 @@ public class ClientSolution extends Thread {
 		 * handle client command line argument 
 		 */
 		
-		
+		log.info("USERNAME => "+Settings.getUsername());
 		//Client wants to login
 		if (!Settings.getUsername().isEmpty() && !Settings.getSecret().isEmpty()){
 			JSONObject loginObject = new JSONObject();
@@ -74,11 +74,8 @@ public class ClientSolution extends Thread {
 			loginObject.put("username", Settings.getUsername());
 			loginObject.put("secret", Settings.getSecret());
 			this.sendObject(loginObject);
-		}
-		//Client wants to register 
-		log.info("USERNAME => "+Settings.getUsername());
-		if (!Settings.getUsername().isEmpty() && Settings.getSecret().isEmpty()){
-			
+		}else if (!Settings.getUsername().isEmpty() && Settings.getSecret().isEmpty()){
+			//client wants to register
 			JSONObject registerObject = new JSONObject();
 			registerObject.put("command", "REGISTER");
 			registerObject.put("username", Settings.getUsername());
@@ -125,7 +122,6 @@ public class ClientSolution extends Thread {
 
 	// called by the gui when the user clicks disconnect
 	public void disconnect() {
-		textFrame.setVisible(false);
 		/*
 		 * other things to do
 		 */
@@ -133,6 +129,7 @@ public class ClientSolution extends Thread {
 		JSONObject logout = new JSONObject();
 		logout.put("command","LOGOUT");
 		this.sendObject(logout);
+		this.closeConnection();
 		
 	}
 
@@ -143,6 +140,7 @@ public class ClientSolution extends Thread {
 		while (!term) {
 			try {
 				String JsonMsg = inFromServer.readLine();
+				if(JsonMsg!=null){
 				JSONObject obj;
 				JSONParser parser = new JSONParser();
 				obj = (JSONObject) parser.parse(JsonMsg);
@@ -176,6 +174,13 @@ public class ClientSolution extends Thread {
 					this.sendObject(login);
 					
 				}
+				if(obj.get("command").equals("LOGIN_FAILED")){
+					this.closeConnection();
+				}
+				if(obj.get("command").equals("REGISTER_FAILED")){
+					this.closeConnection();
+				}
+				}
 
 			} catch (IOException | ParseException e) {
 				// TODO Auto-generated catch block
@@ -188,6 +193,18 @@ public class ClientSolution extends Thread {
 	/*
 	 * additional methods
 	 */
+	public void closeConnection(){
+		textFrame.setVisible(false);
+		try {
+			setTerm(true);
+			inFromServer.close();
+			outToServer.close();
+			//clientSocket.close();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
 	public final void setTerm(boolean t){
 		term = t;
 	}
