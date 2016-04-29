@@ -93,9 +93,8 @@ public class ControlSolution extends Control {
 		con.writeMsg(serverMessage.toString());
 
 		allServers.add(con);
-		ServerAnnounce sa = new ServerAnnounce(con, Settings.getSecret(), 0,
-				"", 0);
-		serverAnnounces.add(sa);
+		//ServerAnnounce sa = new ServerAnnounce(con, Settings.getSecret(), 0,"", 0);
+		//serverAnnounces.add(sa);
 		return con;
 	}
 
@@ -164,8 +163,8 @@ public class ControlSolution extends Control {
 				secret = messageObject.get("secret").toString();
 				if (secret.equals(Settings.getSecret())) {
 					allServers.add(con);
-					ServerAnnounce sa = new ServerAnnounce(con, secret, 0, "",0);
-					serverAnnounces.add(sa);
+					//ServerAnnounce sa = new ServerAnnounce(con, secret, 0, "",0);
+					//serverAnnounces.add(sa);
 					log.info("AUTHENTICATED***YAY**Size of SA = ***"
 							+ serverAnnounces.size());
 
@@ -178,29 +177,15 @@ public class ControlSolution extends Control {
 				}
 				break;
 			case "SERVER_ANNOUNCE":
-				String hostname = messageObject.get("hostname").toString();
-				int port = Integer.parseInt(messageObject.get("port")
-						.toString());
-				String id = messageObject.get("id").toString();
-				int load = Integer.parseInt(messageObject.get("load")
-						.toString());
-
-				log.info("***SIZE***" + serverAnnounces.size());
-				for (ServerAnnounce sa : serverAnnounces) {
-					// if(sa.getCon().equals(con)){
-					sa.setHostname(hostname);
-					sa.setLoad(load);
-					sa.setPort(port);
-					sa.setID(id);
-					log.info("load: " + sa.getLoad() + " HN:"
-							+ sa.getHostname() + " ************");
-					// }
-
-				}
-
-				log.info("*****WORKING*****");
+				receiveServerAnnounce(messageObject,con);
 				break;
 			case "LOCK_REQUEST":
+				//redirect to other servers
+				for(Connection connect:allServers){
+					if(connect!=con){
+						connect.writeMsg(msg);
+					}
+				}
 				username = messageObject.get("username").toString();
 				secret = messageObject.get("secret").toString();
 				if(registeredClients.containsKey(username)){
@@ -217,6 +202,7 @@ public class ControlSolution extends Control {
 					
 					
 				}else{
+					registeredClients.put(username, secret); 
 					JSONObject allow = new JSONObject();
 					allow.put("command", "LOCK_ALLOWED");
 					allow.put("username", username);
@@ -232,6 +218,12 @@ public class ControlSolution extends Control {
 				break;
 				
 			case "LOCK_DENIED":
+				//redirect to other servers
+				for(Connection connect:allServers){
+					if(connect!=con){
+						connect.writeMsg(msg);
+					}
+				}
 				username = messageObject.get("username").toString();
 				secret = messageObject.get("secret").toString();
 				
@@ -246,6 +238,12 @@ public class ControlSolution extends Control {
 				break;
 				
 			case "LOCK_ALLOWED":
+				//redirect to other servers
+				for(Connection connect:allServers){
+					if(connect!=con){
+						connect.writeMsg(msg);
+					}
+				}
 				username = messageObject.get("username").toString();
 				secret = messageObject.get("secret").toString();
 				
@@ -269,9 +267,15 @@ public class ControlSolution extends Control {
 					broadcast.put("command","ACTIVITY_BROADCAST");
 					broadcast.put("activity",activityObject.toJSONString());
 					
-					for(Connection connect: connections){
-						connect.writeMsg(broadcast.toString());
+					for(Connection connect:allServers){
+						connect.writeMsg(broadcast.toJSONString());
 					}
+					Iterator it = allClients.keySet().iterator();
+					while (it.hasNext()) {
+						Connection connect = (Connection)it.next();
+						connect.writeMsg(msg);			
+					}
+					
 				}else{
 					JSONObject fail = new JSONObject();
 					fail.put("command", "AUTHENTICATION_FAIL");
@@ -288,6 +292,12 @@ public class ControlSolution extends Control {
 					connect.writeMsg(msg);
 						
 				}
+				for(Connection connect:allServers){
+					if(connect!=con){
+						connect.writeMsg(msg);
+					}
+				}
+				break;
 			}
 		} catch (org.json.simple.parser.ParseException e) {
 			// TODO Auto-generated catch block
@@ -329,6 +339,39 @@ public class ControlSolution extends Control {
 	/*
 	 * Other methods as needed
 	 */
+	public void receiveServerAnnounce(JSONObject messageObject, Connection con){
+		String hostname = messageObject.get("hostname").toString();
+		int port = Integer.parseInt(messageObject.get("port")
+				.toString());
+		String id = messageObject.get("id").toString();
+		int load = Integer.parseInt(messageObject.get("load")
+				.toString());
+
+		 //check if already that one already exists
+		boolean exist=false;
+		for(int i=0;i<serverAnnounces.size();i++){
+			if(id==serverAnnounces.get(i).getID()){
+				exist=true;
+			}
+		}
+		if(!exist){
+			//add to the serverAnnounce array
+			ServerAnnounce sA=new ServerAnnounce();
+			sA.setHostname(hostname);
+			sA.setID(id);
+			sA.setLoad(load);
+			sA.setPort(port);
+			serverAnnounces.add(sA);
+		}
+		//send that message to other server related to it except the one send the message
+		for(Connection connect:allServers){
+			if(connect!=con){
+				connect.writeMsg(messageObject.toJSONString());
+			}
+		}
+
+		log.info("*****WORKING*****");
+	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public synchronized void register(String username, String secret, Connection con) {
@@ -371,9 +414,9 @@ public class ControlSolution extends Control {
 				waitingSecret = secret;
 				
 				//check count and flag
-				log.info("---------Server Size---------"+allServers.size());
+				log.info("---------Server Size---------"+serverAnnounces.size());
 				log.info("---------respond Size---------"+respondCount);
-				while(respondCount!=allServers.size()){
+				while(respondCount!=serverAnnounces.size()){
 					try {
 						wait(5000);
 					} catch (InterruptedException e) {
@@ -381,7 +424,7 @@ public class ControlSolution extends Control {
 						e.printStackTrace();
 					}
 				}
-				if(respondCount==allServers.size()){
+				if(respondCount==serverAnnounces.size()){
 					log.info("---------1.I'm executed---------");
 					if (lockAllow == true){
 						log.info("---------2.I'm executed---------");
@@ -491,19 +534,20 @@ public class ControlSolution extends Control {
 
 	class ServerAnnounce {
 
-		String id;
-		int load;
-		String hostname;
+		String id=null;
+		int load=0;
+		String hostname=null;
 		int port;
-		Connection con;
 
-		public ServerAnnounce(Connection con, String id, int load,
+		public ServerAnnounce(String id, int load,
 				String hostname, int port) {
-			this.con = con;
 			this.id = id;
 			this.load = load;
 			this.hostname = hostname;
 			this.port = port;
+		}
+		public ServerAnnounce(){
+			
 		}
 
 		public int getLoad() {
@@ -518,8 +562,8 @@ public class ControlSolution extends Control {
 			return port;
 		}
 
-		public Connection getCon() {
-			return con;
+		public String getID(){
+			return this.id;
 		}
 
 		public void setLoad(int load) {
@@ -537,6 +581,6 @@ public class ControlSolution extends Control {
 		public void setID(String id) {
 			this.id = id;
 		}
-
+		
 	}
 }
