@@ -28,7 +28,7 @@ public class ControlSolution extends Control {
 	Hashtable<Connection, String> allClients = new Hashtable<Connection, String>();
 	ArrayList<ServerAnnounce> serverAnnounces = new ArrayList<ServerAnnounce>();
 	String wholeSecret = null;
-	private String id = null;
+	private String ID = null;
 
 	int respondCount = 0;
 	boolean lockAllow = true;
@@ -60,7 +60,7 @@ public class ControlSolution extends Control {
 			Settings.setSecret(wholeSecret);
 			log.info("Whole Secret is: "+wholeSecret);
 		}
-		id=Settings.nextSecret();
+		ID=Settings.nextSecret();
 	}
 
 	/*
@@ -320,7 +320,7 @@ public class ControlSolution extends Control {
 
 		JSONObject serverAnnounce = new JSONObject();
 		serverAnnounce.put("command", "SERVER_ANNOUNCE");
-		serverAnnounce.put("id", Settings.getSecret());
+		serverAnnounce.put("id", this.ID);
 		serverAnnounce.put("load", allClients.size());
 		serverAnnounce.put("hostname", Settings.getLocalHostname());
 		serverAnnounce.put("port", Settings.getLocalPort());
@@ -343,22 +343,26 @@ public class ControlSolution extends Control {
 		String hostname = messageObject.get("hostname").toString();
 		int port = Integer.parseInt(messageObject.get("port")
 				.toString());
-		String id = messageObject.get("id").toString();
+		String msgID = messageObject.get("id").toString();
 		int load = Integer.parseInt(messageObject.get("load")
 				.toString());
 
 		 //check if already that one already exists
-		boolean exist=false;
+		boolean SerInformationExist=false;
+		log.info("=======msgID"+msgID);
 		for(int i=0;i<serverAnnounces.size();i++){
-			if(id==serverAnnounces.get(i).getID()){
-				exist=true;
+			log.info("=======getID"+serverAnnounces.get(i).getID());
+			if(msgID.equals(serverAnnounces.get(i).getID())){
+				log.info("=======I'm here!!!!!");
+				SerInformationExist=true;
 			}
 		}
-		if(!exist){
+		log.info("*****EXIST"+SerInformationExist);
+		if(!SerInformationExist){
 			//add to the serverAnnounce array
 			ServerAnnounce sA=new ServerAnnounce();
 			sA.setHostname(hostname);
-			sA.setID(id);
+			sA.setID(msgID);
 			sA.setLoad(load);
 			sA.setPort(port);
 			serverAnnounces.add(sA);
