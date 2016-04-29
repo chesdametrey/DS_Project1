@@ -68,14 +68,16 @@ public class ClientSolution extends Thread {
 		
 		log.info("USERNAME => "+Settings.getUsername());
 		//Client wants to login
-		if (!Settings.getUsername().isEmpty() && !Settings.getSecret().isEmpty()){
+		if (!Settings.getUsername().equals("anonymous") && !Settings.getSecret().equals("")){
 			JSONObject loginObject = new JSONObject();
 			loginObject.put("command", "LOGIN");
 			loginObject.put("username", Settings.getUsername());
 			loginObject.put("secret", Settings.getSecret());
 			this.sendObject(loginObject);
-		}else if (!Settings.getUsername().isEmpty() && Settings.getSecret().isEmpty()){
+		}else if (!Settings.getUsername().equals("anonymous") && Settings.getSecret().equals("")){
 			//client wants to register
+			String secret=Settings.nextSecret();
+			Settings.setSecret(secret);
 			JSONObject registerObject = new JSONObject();
 			registerObject.put("command", "REGISTER");
 			registerObject.put("username", Settings.getUsername());
@@ -85,6 +87,12 @@ public class ClientSolution extends Thread {
 			registerObject.put("secret", Settings.getSecret());
 			this.sendObject(registerObject);
 				
+		}else if(Settings.getUsername().equals("anonymous") && Settings.getSecret().equals("")){
+			JSONObject loginObject = new JSONObject();
+			loginObject.put("command", "LOGIN");
+			loginObject.put("username", Settings.getUsername());
+			loginObject.put("secret", Settings.getSecret());
+			this.sendObject(loginObject);
 		}
 	}
 

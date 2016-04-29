@@ -429,7 +429,7 @@ public class ControlSolution extends Control {
 						//log.info("---------2.I'm executed---------");
 						JSONObject success = new JSONObject();
 						success.put("command", "REGISTER_SUCCESS");
-						success.put("info", "register success for " + username);
+						success.put("info", "register success for " + username+" secret is: "+secret);
 						con.writeMsg(success.toJSONString());	
 						respondCount = 0;
 						log.info("***lock Allow = true ***");
@@ -462,53 +462,14 @@ public class ControlSolution extends Control {
 
 	@SuppressWarnings("unchecked")
 	public void login(String username, String secret, Connection con) {
-		
-		if (registeredClients.containsKey(username)) {
+		if(username.equals("anonymous")&&secret.equals("")){
+			callInLogin(username, secret, con);
+		}else if (registeredClients.containsKey(username)) {
 
 			String key = registeredClients.get(username);
 
 			if (key.equals(secret)) {
-				//log.info("login sucess");
-				JSONObject success = new JSONObject();
-				success.put("command", "LOGIN_SUCCESS");
-				success.put("info", "logged in as user " + username);
-				con.writeMsg(success.toString());
-				// load balancing
-				int ownLoad = allClients.size();
-				int smallestL = 0;
-				int small = 0;
-				for (int i = 0; i < serverAnnounces.size(); i++) {
-					if (i == 0) {
-						smallestL = serverAnnounces.get(i).getLoad();
-					} else {
-						if (serverAnnounces.get(i).getLoad() < smallestL) {
-							smallestL = serverAnnounces.get(i).getLoad();
-							small = i;
-						}
-					}
-				}
-				log.info("***smallestL = " + smallestL + "**ownLoad = "
-						+ ownLoad);
-				if (smallestL <= ownLoad - 2) {
-					// redirect,establish a new connection
-					JSONObject redirect = new JSONObject();
-					redirect.put("command", "REDIRECT");
-					redirect.put("hostname", serverAnnounces.get(small)
-							.getHostname());
-					redirect.put("port", serverAnnounces.get(small).getPort());
-					con.writeMsg(redirect.toJSONString());
-
-					log.info("***host***"
-							+ serverAnnounces.get(small).getHostname()
-							+ "****port**"
-							+ serverAnnounces.get(small).getPort());
-					this.connectionClosed(con);
-
-				} else {
-					log.info("no new connection");
-					allClients.put(con, username);
-				}
-
+				callInLogin(username, secret, con);
 			} else {
 				JSONObject fail = new JSONObject();
 				fail.put("command", "LOGIN_FAILED");
@@ -529,6 +490,51 @@ public class ControlSolution extends Control {
 			this.connectionClosed(con);
 		}
 
+	}
+	public void callInLogin(String username, String secret, Connection con){
+		JSONObject success = new JSONObject();
+		success.put("command", "LOGIN_SUCCESS");
+		success.put("info", "logged in as user " + username);
+		con.writeMsg(success.toString());
+		// load balancing
+		if(serverAnnounces.size()>0){
+		int ownLoad = allClients.size();
+		int smallestL = 0;
+		int small = 0;
+		for (int i = 0; i < serverAnnounces.size(); i++) {
+			if (i == 0) {
+				smallestL = serverAnnounces.get(i).getLoad();
+			} else {
+				if (serverAnnounces.get(i).getLoad() < smallestL) {
+					smallestL = serverAnnounces.get(i).getLoad();
+					small = i;
+				}
+			}
+		}
+		log.info("***smallestL = " + smallestL + "**ownLoad = "
+				+ ownLoad);
+		if (smallestL <= ownLoad - 2) {
+			// redirect,establish a new connection
+			JSONObject redirect = new JSONObject();
+			redirect.put("command", "REDIRECT");
+			redirect.put("hostname", serverAnnounces.get(small)
+					.getHostname());
+			redirect.put("port", serverAnnounces.get(small).getPort());
+			con.writeMsg(redirect.toJSONString());
+
+			log.info("***host***"
+					+ serverAnnounces.get(small).getHostname()
+					+ "****port**"
+					+ serverAnnounces.get(small).getPort());
+			this.connectionClosed(con);
+
+		} else {
+			log.info("no new connection");
+			allClients.put(con, username);
+		}
+		}else{
+			allClients.put(con, username);
+		}
 	}
 
 	class ServerAnnounce {
