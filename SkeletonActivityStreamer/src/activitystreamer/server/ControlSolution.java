@@ -22,12 +22,12 @@ public class ControlSolution extends Control {
 	/*
 	 * additional variables as needed
 	 */
-	Hashtable<String, String> registeredClients = new Hashtable<String, String>();  //store username and password
-	ArrayList<Connection> allServers = new ArrayList<Connection>();   //servers that connect directly to this server
-	Hashtable<Connection, String> allClients = new Hashtable<Connection, String>();   //client logged in now, load
-	static ArrayList<ServerAnnounce> serverAnnounces = new ArrayList<ServerAnnounce>();   //information of servers connected to this server
-	String wholeSecret = null;   //secret of root server
-	private String ID = null;   //the secret of this server
+	Hashtable<String, String> registeredClients = new Hashtable<String, String>();
+	ArrayList<Connection> allServers = new ArrayList<Connection>();
+	Hashtable<Connection, String> allClients = new Hashtable<Connection, String>();
+	static ArrayList<ServerAnnounce> serverAnnounces = new ArrayList<ServerAnnounce>();
+	String wholeSecret = null;
+	private String ID = null;
 
 	int respondCount = 0;
 	boolean lockAllow = true;
@@ -156,11 +156,7 @@ public class ControlSolution extends Control {
 				if (secret.equals(Settings.getSecret())) {
 					allServers.add(con);
 					log.info("New Server AUTHENTICATED");
-					JSONObject success = new JSONObject();
-					//send the registeredClients information to the new server
-					success.put("command", "REGISTEREDUSERS");
-					success.putAll(registeredClients);
-					con.writeMsg(success.toJSONString());
+
 				}else{
 					JSONObject fail = new JSONObject();
 					fail.put("command", "AUTHENTICATION_FAIL");
@@ -174,19 +170,6 @@ public class ControlSolution extends Control {
 			case "AUTHENTICATION_FAIL":
 				this.connectionClosed(con);
 				break;
-			case "REGISTEREDUSERS":
-				//store registered user information into registedusers hashtable
-				Iterator<String> it = (Iterator<String>) messageObject.keySet();
-				String userName = null;
-				String passWord = null;
-				while (it.hasNext()) {
-					if(!it.next().equals("command")){
-				    userName = it.next();
-				    passWord = (String) messageObject.get(userName);
-				    this.registeredClients.put(userName, passWord);
-					}
-				}
-				break;
 				
 			case "SERVER_ANNOUNCE":
 				receiveServerAnnounce(messageObject,con);
@@ -199,12 +182,12 @@ public class ControlSolution extends Control {
 						connect.writeMsg(msg);
 					}
 				}
-				userName = messageObject.get("username").toString();
+				username = messageObject.get("username").toString();
 				secret = messageObject.get("secret").toString();
-				if(registeredClients.containsKey(userName)){
+				if(registeredClients.containsKey(username)){
 					JSONObject deny = new JSONObject();
 					deny.put("command", "LOCK_DENIED");
-					deny.put("username", userName);
+					deny.put("username", username);
 					deny.put("secret", secret);
 					
 					for(Connection connect: allServers){
@@ -213,10 +196,10 @@ public class ControlSolution extends Control {
 					log.info("Sent LOCK_DENIED to all the servers");
 						
 				}else{
-					registeredClients.put(userName, secret); 
+					registeredClients.put(username, secret); 
 					JSONObject allow = new JSONObject();
 					allow.put("command", "LOCK_ALLOWED");
-					allow.put("username", userName);
+					allow.put("username", username);
 					allow.put("secret", secret);
 					allow.put("server", ID);
 					
@@ -235,13 +218,13 @@ public class ControlSolution extends Control {
 						connect.writeMsg(msg);
 					}
 				}
-				userName = messageObject.get("username").toString();
+				username = messageObject.get("username").toString();
 				secret = messageObject.get("secret").toString();
 				
-				if (registeredClients.containsKey(userName)){
-					registeredClients.remove(userName);
+				if (registeredClients.containsKey(username)){
+					registeredClients.remove(username);
 				}
-				if(waitingUsername.equals(userName)){
+				if(waitingUsername.equals(username)){
 					respondCount++;
 					lockAllow = false;
 					
@@ -255,24 +238,24 @@ public class ControlSolution extends Control {
 						connect.writeMsg(msg);
 					}
 				}
-				userName = messageObject.get("username").toString();
+				username = messageObject.get("username").toString();
 				secret = messageObject.get("secret").toString();
 				
-				if(waitingUsername.equals(userName)){
+				if(waitingUsername.equals(username)){
 					respondCount++;
 				}
 				//log.info("---------->respondCount= "+respondCount);
 				break;
 				
 			case "ACTIVITY_MESSAGE":
-				userName = messageObject.get("username").toString();
-				if(allClients.containsValue(userName) || userName.equals("anonymous")){
+				username = messageObject.get("username").toString();
+				if(allClients.containsValue(username) || username.equals("anonymous")){
 					String activity = messageObject.get("activity").toString();
 					
 					JSONObject activityObject;
 					JSONParser par= new JSONParser();
 					activityObject = (JSONObject) par.parse(activity);
-					activityObject.put("authenticated_user", userName);
+					activityObject.put("authenticated_user", username);
 					
 					JSONObject broadcast = new JSONObject();
 					broadcast.put("command","ACTIVITY_BROADCAST");
@@ -281,25 +264,25 @@ public class ControlSolution extends Control {
 					for(Connection connect:allServers){
 						connect.writeMsg(broadcast.toJSONString());
 					}
-					Iterator it1 = allClients.keySet().iterator();
-					while (it1.hasNext()) {
-						Connection connect = (Connection)it1.next();
+					Iterator it = allClients.keySet().iterator();
+					while (it.hasNext()) {
+						Connection connect = (Connection)it.next();
 						connect.writeMsg(broadcast.toJSONString());			
 					}
 					
 				}else{
 					JSONObject fail = new JSONObject();
 					fail.put("command", "AUTHENTICATION_FAIL");
-					fail.put("info", userName +" has not logged in");
+					fail.put("info", username +" has not logged in");
 					con.writeMsg(fail.toJSONString());
 				}
 				
 				break;
 				
 			case "ACTIVITY_BROADCAST":
-				Iterator ite = allClients.keySet().iterator();
-				while (ite.hasNext()) {
-					Connection connect = (Connection)ite.next();
+				Iterator it = allClients.keySet().iterator();
+				while (it.hasNext()) {
+					Connection connect = (Connection)it.next();
 					connect.writeMsg(msg);
 						
 				}
