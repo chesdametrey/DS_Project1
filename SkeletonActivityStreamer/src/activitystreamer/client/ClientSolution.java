@@ -2,6 +2,11 @@ package activitystreamer.client;
 
 import java.io.*;
 import java.net.Socket;
+import java.security.NoSuchAlgorithmException;
+import java.security.PublicKey;
+
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -28,6 +33,9 @@ public class ClientSolution extends Thread {
 	private DataOutputStream outToServer;
 	private String remoteHost = Settings.getRemoteHostname();
 	private int remotePort = Settings.getRemotePort();
+	
+	PublicKey pubKey;
+	SecretKey sharedKey;
 
 	// this is a singleton object
 	public static ClientSolution getInstance() {
@@ -60,40 +68,11 @@ public class ClientSolution extends Thread {
 			e.printStackTrace();
 		}
 		// start the client's thread
+		JSONObject requestKey=new JSONObject();
+		requestKey.put("command", "REQUEST_PUBKEY");
+		this.sendObject(requestKey);
+
 		start();
-		
-		/*
-		 * handle client command line argument 
-		 */
-		
-		log.info("USERNAME => "+Settings.getUsername());
-		//Client wants to login
-		if (!Settings.getUsername().equals("anonymous") && !Settings.getSecret().equals("")){
-			JSONObject loginObject = new JSONObject();
-			loginObject.put("command", "LOGIN");
-			loginObject.put("username", Settings.getUsername());
-			loginObject.put("secret", Settings.getSecret());
-			this.sendObject(loginObject);
-		}else if (!Settings.getUsername().equals("anonymous") && Settings.getSecret().equals("")){
-			//client wants to register
-			String secret=Settings.nextSecret();
-			Settings.setSecret(secret);
-			JSONObject registerObject = new JSONObject();
-			registerObject.put("command", "REGISTER");
-			registerObject.put("username", Settings.getUsername());
-			//generate a secret key
-			Settings.setSecret(Settings.nextSecret());
-			
-			registerObject.put("secret", Settings.getSecret());
-			this.sendObject(registerObject);
-				
-		}else if(Settings.getUsername().equals("anonymous") && Settings.getSecret().equals("")){
-			JSONObject loginObject = new JSONObject();
-			loginObject.put("command", "LOGIN");
-			loginObject.put("username", Settings.getUsername());
-			loginObject.put("secret", Settings.getSecret());
-			this.sendObject(loginObject);
-		}
 	}
 
 	// called by the gui when the user clicks "send"
@@ -187,6 +166,48 @@ public class ClientSolution extends Thread {
 				}
 				if(obj.get("command").equals("REGISTER_FAILED")){
 					this.closeConnection();
+				}
+				if(obj.get("command").equals("RESPONSE_PUBKEY")){
+					pubKey=(PublicKey) obj.get("pubkey");
+					//generate shared key for this connection
+					try {
+						KeyGenerator keyGenerator = KeyGenerator.getInstance("DES");
+						sharedKey = keyGenerator.generateKey();
+						
+						log.info("USERNAME => "+Settings.getUsername());
+						//Client wants to login
+						if (!Settings.getUsername().equals("anonymous") && !Settings.getSecret().equals("")){
+							JSONObject loginObject = new JSONObject();
+							loginObject.put("command", "LOGIN");
+							loginObject.put("username", Settings.getUsername());
+							loginObject.put("secret", Settings.getSecret());
+							loginObject.put("sharedkey", sharedKey);
+							this.sendObject(loginObject);
+						}else if (!Settings.getUsername().equals("anonymous") && Settings.getSecret().equals("")){
+							//client wants to register
+							JSONObject registerObject = new JSONObject();
+							registerObject.put("command", "REGISTER");
+							registerObject.put("username", Settings.getUsername());
+							//generate a secret key
+							Settings.setSecret(Settings.nextSecret());
+							
+							registerObject.put("secret", Settings.getSecret());
+							registerObject.put("sharedkey", sharedKey);
+							this.sendObject(registerObject);
+								
+						}else if(Settings.getUsername().equals("anonymous") && Settings.getSecret().equals("")){
+							JSONObject loginObject = new JSONObject();
+							loginObject.put("command", "LOGIN");
+							loginObject.put("username", Settings.getUsername());
+							loginObject.put("secret", Settings.getSecret());
+							loginObject.put("sharedkey", sharedKey);
+							this.sendObject(loginObject);
+						}
+						
+					} catch (NoSuchAlgorithmException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
 				}
 				}
 

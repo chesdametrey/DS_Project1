@@ -11,7 +11,7 @@ import activitystreamer.util.Settings;
 
 public class Control extends Thread {
 	private static final Logger log = LogManager.getLogger();
-	protected static ArrayList<Connection> connections;
+	private static ArrayList<Connection> connections;
 	private static boolean term=false;
 	private static Listener listener;
 	
@@ -53,7 +53,6 @@ public class Control extends Thread {
 	 * Return true if the connection should close.
 	 */
 	public synchronized boolean process(Connection con,String msg){
-		
 		return true;
 	}
 	

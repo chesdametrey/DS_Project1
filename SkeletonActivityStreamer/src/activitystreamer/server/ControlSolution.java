@@ -4,17 +4,42 @@ import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.math.BigInteger;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.security.InvalidKeyException;
+import java.security.KeyFactory;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
+import java.security.PrivateKey;
+import java.security.PublicKey;
+import java.security.spec.InvalidKeySpecException;
+import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Hashtable;
 import java.util.Iterator;
+
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.KeyGenerator;
+import javax.crypto.NoSuchPaddingException;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
+import javax.xml.bind.DatatypeConverter;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 
+import com.google.gson.JsonParseException;
+import com.google.gson.JsonParser;
+
 import activitystreamer.util.Settings;
+import sun.misc.BASE64Encoder;
 
 public class ControlSolution extends Control {
 	private static final Logger log = LogManager.getLogger();
@@ -33,6 +58,15 @@ public class ControlSolution extends Control {
 	boolean lockAllow = true;
 	String waitingUsername = "";
 	String waitingSecret = "";
+	
+	static PublicKey publicKey;  //its own public key
+	static PrivateKey privateKey;  //its own private key
+	//to store others public key
+	//static Hashtable<Connection, PublicKey> pubKeyList=new Hashtable<Connection,PublicKey>();
+	static PublicKey parentPubKey;
+	//to store shared key
+	static Hashtable<Connection, SecretKey> sharedKeyList=new Hashtable<Connection, SecretKey>();
+	
 	// since control and its subclasses are singleton, we get the singleton this
 	// way
 	public static ControlSolution getInstance() {
@@ -44,18 +78,30 @@ public class ControlSolution extends Control {
 
 	public ControlSolution() {
 		super();
-		// check if we should initiate a connection and do so if necessary
-		initiateConnection();
-		// start the server's activity loop
-		// it will call doActivity every few seconds
-		start();
-		
 		if(Settings.getRemoteHostname() == null){
 			wholeSecret=Settings.nextSecret();
 			Settings.setSecret(wholeSecret);
 			log.info("Whole Secret is: "+wholeSecret);
 		}
 		ID=Settings.nextSecret();
+		
+		//generate pub/priv key pair
+		try {
+			KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");
+			keyGen.initialize(1024);
+		    KeyPair keyPair = keyGen.generateKeyPair();
+			publicKey = keyPair.getPublic();
+			privateKey = keyPair.getPrivate();
+		} catch (NoSuchAlgorithmException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		// check if we should initiate a connection and do so if necessary
+		initiateConnection();
+		
+		// start the server's activity loop
+		// it will call doActivity every few seconds
+		start();	 
 	}
 
 	/*
@@ -77,10 +123,14 @@ public class ControlSolution extends Control {
 		/*
 		 * do additional things here
 		 */
-		JSONObject serverMessage = new JSONObject();
+		/*JSONObject serverMessage = new JSONObject();
 		serverMessage.put("command", "AUTHENTICATE");
+		//serverMessage.put("requestPubKey", "");
 		serverMessage.put("secret", Settings.getSecret());
-		con.writeMsg(serverMessage.toString());
+		con.writeMsg(serverMessage.toString());*/
+		JSONObject requestKey=new JSONObject();
+		requestKey.put("command", "REQUEST_PUBKEY");
+		con.writeMsg(requestKey.toJSONString());
 
 		allServers.add(con);
 		return con;
@@ -105,21 +155,34 @@ public class ControlSolution extends Control {
 		/*
 		 * do additional work here return true/false as appropriate
 		 */
+		if(!isGoodJson(msg)){
+			log.info("=========");
+			con.newVersion=true;
+			msg=decrypt(msg);
+			}
+			
 		log.info("Msg received1");
-		String command, username, secret;
+		String command;
 		JSONParser parser = new JSONParser();
 		JSONObject messageObject;
-		log.info("Msg received");
+		
+		boolean closeCon=false;
+		
 		log.info(msg);
 		try {
 			messageObject = (JSONObject) parser.parse(msg);
+			/*if(messageObject.containsKey("encrpte")){
+				con.newVersion=true;
+				msg=decrypt(msg);
+				messageObject = (JSONObject) parser.parse(msg);
+			}*/
 			// access message object
 			command = messageObject.get("command").toString();
 			switch (command) {
 			case "REGISTER":
 				if(messageObject.containsKey("username") && messageObject.containsKey("secret")){
-					username = messageObject.get("username").toString();
-					secret = messageObject.get("secret").toString();
+					String username = messageObject.get("username").toString();
+					String secret = messageObject.get("secret").toString();
 					register(username, secret, con);
 					log.debug("REGISTER");
 				}else{
@@ -131,8 +194,8 @@ public class ControlSolution extends Control {
 				break;
 			case "LOGIN":
 				if(messageObject.containsKey("username") && messageObject.containsKey("secret")){
-					username = messageObject.get("username").toString();
-					secret = messageObject.get("secret").toString();
+					String username = messageObject.get("username").toString();
+					String secret = messageObject.get("secret").toString();
 					login(username, secret, con);
 					log.debug("LOGIN");
 				}else{
@@ -147,28 +210,26 @@ public class ControlSolution extends Control {
 				// remove connection from client hash table
 				allClients.remove(con);
 				// close connection
-				this.connectionClosed(con);
+				//this.connectionClosed(con);
+				closeCon=true;
 				log.debug("LOGOUT");
 				break;
 
 			case "AUTHENTICATE":
-				secret = messageObject.get("secret").toString();
-				if (secret.equals(Settings.getSecret())) {
-					allServers.add(con);
-					log.info("New Server AUTHENTICATED");
-
-				}else{
-					JSONObject fail = new JSONObject();
-					fail.put("command", "AUTHENTICATION_FAIL");
-					fail.put("info","the supplied secret is incorrect: "+secret);
-					con.writeMsg(fail.toJSONString());
-					//close connection 
-					this.connectionClosed(con);
-				}
+				closeCon=receiveAuthentication(messageObject,con);
 				break;
 				
 			case "AUTHENTICATION_FAIL":
-				this.connectionClosed(con);
+				//this.connectionClosed(con);
+				closeCon=true;
+				break;
+			case "AUTHENTICATED":
+//				Iterator it = (Iterator) messageObject.keySet(); 
+//				while(it.hasNext()){
+//					String key = (String) it.next();  
+//	                String value = (String) messageObject.get(key);
+//	                registeredClients.put(key, value);
+//				}
 				break;
 				
 			case "SERVER_ANNOUNCE":
@@ -182,33 +243,9 @@ public class ControlSolution extends Control {
 						connect.writeMsg(msg);
 					}
 				}
-				username = messageObject.get("username").toString();
-				secret = messageObject.get("secret").toString();
-				if(registeredClients.containsKey(username)){
-					JSONObject deny = new JSONObject();
-					deny.put("command", "LOCK_DENIED");
-					deny.put("username", username);
-					deny.put("secret", secret);
-					
-					for(Connection connect: allServers){
-						connect.writeMsg(deny.toJSONString());
-					}
-					log.info("Sent LOCK_DENIED to all the servers");
-						
-				}else{
-					registeredClients.put(username, secret); 
-					JSONObject allow = new JSONObject();
-					allow.put("command", "LOCK_ALLOWED");
-					allow.put("username", username);
-					allow.put("secret", secret);
-					allow.put("server", ID);
-					
-					for(Connection connect: allServers){
-						connect.writeMsg(allow.toJSONString());
-					}
-					log.info("Sent LOCK_ALLOWED to all the servers");
-					
-				}
+				String username = messageObject.get("username").toString();
+				String secret = messageObject.get("secret").toString();
+				processLockRequest(con,username,secret);
 				break;
 				
 			case "LOCK_DENIED":
@@ -264,9 +301,9 @@ public class ControlSolution extends Control {
 					for(Connection connect:allServers){
 						connect.writeMsg(broadcast.toJSONString());
 					}
-					Iterator it = allClients.keySet().iterator();
-					while (it.hasNext()) {
-						Connection connect = (Connection)it.next();
+					Iterator iterator = allClients.keySet().iterator();
+					while (iterator.hasNext()) {
+						Connection connect = (Connection)iterator.next();
 						connect.writeMsg(broadcast.toJSONString());			
 					}
 					
@@ -275,14 +312,15 @@ public class ControlSolution extends Control {
 					fail.put("command", "AUTHENTICATION_FAIL");
 					fail.put("info", username +" has not logged in");
 					con.writeMsg(fail.toJSONString());
+					closeCon=true;
 				}
 				
 				break;
 				
 			case "ACTIVITY_BROADCAST":
-				Iterator it = allClients.keySet().iterator();
-				while (it.hasNext()) {
-					Connection connect = (Connection)it.next();
+				Iterator ite = allClients.keySet().iterator();
+				while (ite.hasNext()) {
+					Connection connect = (Connection)ite.next();
 					connect.writeMsg(msg);
 						
 				}
@@ -291,6 +329,36 @@ public class ControlSolution extends Control {
 						connect.writeMsg(msg);
 					}
 				}
+				break;
+			case "REQUEST_PUBKEY":
+				JSONObject response=new JSONObject();
+				response.put("command", "RESPONSE_PUBKEY");
+				response.put("pubkey", publicKeyToString(publicKey));
+				log.info("respose Json:"+response.toJSONString());
+				con.writeMsg(response.toJSONString());
+				break;
+			case "RESPONSE_PUBKEY":
+				String pubKeyString=(String) messageObject.get("pubkey");
+				PublicKey pubkey=stringToPublicKey( pubKeyString);
+				parentPubKey=pubkey;
+				//generate shared key for this connection
+				try {
+					KeyGenerator keyGenerator = KeyGenerator.getInstance("DES");
+					SecretKey sharedKey = keyGenerator.generateKey();
+					sharedKeyList.put(con, sharedKey);
+					//respond with shared key and authentication message
+					JSONObject respond=new JSONObject();
+					respond.put("command", "AUTHENTICATE");
+					respond.put("secret", Settings.getSecret());
+					respond.put("sharedkey", secretKeyToString(sharedKey));
+					//send msg
+				    con.writeMsg(respond.toJSONString());
+					
+				} catch (NoSuchAlgorithmException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				
 				break;
 				
 			default:
@@ -306,7 +374,7 @@ public class ControlSolution extends Control {
 		}
 
 
-		return false;
+		return closeCon;
 	}
 
 	/*
@@ -328,7 +396,7 @@ public class ControlSolution extends Control {
 		serverAnnounce.put("port", Settings.getLocalPort());
 
 		for (Connection c : allServers) {
-			c.writeMsg(serverAnnounce.toJSONString());
+			c.writeMsgWithSharedkey(serverAnnounce.toJSONString());
 		}
 
 		return false;
@@ -337,6 +405,67 @@ public class ControlSolution extends Control {
 	/*
 	 * Other methods as needed
 	 */
+	public synchronized void processLockRequest(Connection con,String username,String secret){
+		
+		if(registeredClients.containsKey(username)){
+			JSONObject deny = new JSONObject();
+			deny.put("command", "LOCK_DENIED");
+			deny.put("username", username);
+			deny.put("secret", secret);
+			
+			for(Connection connect: allServers){
+				connect.writeMsg(deny.toJSONString());
+			}
+			log.info("Sent LOCK_DENIED to all the servers");
+				
+		}else{
+			registeredClients.put(username, secret); 
+			JSONObject allow = new JSONObject();
+			allow.put("command", "LOCK_ALLOWED");
+			allow.put("username", username);
+			allow.put("secret", secret);
+			allow.put("server", ID);
+			
+			for(Connection connect: allServers){
+				connect.writeMsg(allow.toJSONString());
+			}
+			log.info("Sent LOCK_ALLOWED to all the servers");
+			
+		}
+	}
+	
+	public synchronized boolean receiveAuthentication(JSONObject messageObject, Connection con){
+		String secret = messageObject.get("secret").toString();
+		
+		if (secret.equals(Settings.getSecret())) {
+			allServers.add(con);
+			log.info("New Server AUTHENTICATED");
+			//add shared key
+			if(messageObject.containsKey("sharedkey")){
+				String keyStr=(String)messageObject.get("sharedkey");
+				SecretKey secretKey=stringToSecretKey(keyStr);
+				sharedKeyList.put(con, secretKey);
+			}
+			//improve challenge, send registedUsers list
+			JSONObject success=new JSONObject();
+			success.put("command", "AUTHENTICATED");
+			success.putAll(registeredClients);
+			
+			con.writeMsg(success.toJSONString());
+
+		}else{
+			JSONObject fail = new JSONObject();
+			fail.put("command", "AUTHENTICATION_FAIL");
+			fail.put("info","the supplied secret is incorrect: "+secret);
+			
+			con.writeMsg(fail.toJSONString());
+			//close connection 
+			//this.connectionClosed(con);
+			return true;
+		}
+		
+		return false;
+	}
 	public void receiveServerAnnounce(JSONObject messageObject, Connection con){
 		String hostname = messageObject.get("hostname").toString();
 		int port = Integer.parseInt(messageObject.get("port")
@@ -543,6 +672,53 @@ public class ControlSolution extends Control {
 			allClients.put(con, username);
 		}
 	}
+	 public boolean isGoodJson(String json) {  
+	        try {  
+	            new JsonParser().parse(json);  
+	            return true;  
+	        } catch (JsonParseException e) {  
+	            log.error("bad json: " + json);  
+	            return false;  
+	        }  
+	    } 
+	 public String decrypt(String msg){
+		 log.info("msg???????"+msg);
+		
+		// byte[] receivedMsg=stringToByte(msg);
+		 byte[] receivedMsg=msg.getBytes();
+
+		 byte[] text = null;
+			if(sharedKeyList.contains(this)){
+				///
+				//decrypt with sharedkey
+				SecretKey sharedkey=sharedKeyList.get(this);
+				try {
+					Cipher desCipher = Cipher.getInstance("DES");
+					desCipher.init(Cipher.DECRYPT_MODE, sharedkey);
+					text=desCipher.doFinal(receivedMsg);
+				} catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | IllegalBlockSizeException | BadPaddingException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}else{
+				//decrypt with privkey
+				try {
+					log.info("aaaaaaaaa!");
+					Cipher cipher = Cipher.getInstance("RSA");
+					log.info("aaaaapubKeyThisSide:"+publicKey);
+					cipher.init(Cipher.DECRYPT_MODE, privateKey);
+					text=cipher.doFinal(receivedMsg);
+					log.info("text!!!!!!!"+text);
+				} catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | IllegalBlockSizeException | BadPaddingException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+			//String jsonStr=new sun.misc.BASE64Encoder().encodeBuffer(text);
+			//String jsonStr=byteToString(text);
+			String jsonStr=new String(text);
+			return jsonStr;
+	 }
 
 	class ServerAnnounce {
 
@@ -595,4 +771,52 @@ public class ControlSolution extends Control {
 		}
 		
 	}
+	public PublicKey stringToPublicKey(String string)
+	{
+	byte[]  strByte = DatatypeConverter.parseBase64Binary(string);
+	KeyFactory keyFact = null;
+	PublicKey returnKey = null;
+	try {
+		keyFact = KeyFactory.getInstance("RSA");
+		X509EncodedKeySpec x509KeySpec = new X509EncodedKeySpec(strByte);
+		returnKey = keyFact.generatePublic(x509KeySpec);
+	} catch (NoSuchAlgorithmException | InvalidKeySpecException e1) {
+		// TODO Auto-generated catch block
+		e1.printStackTrace();
+	}
+	
+	return returnKey; 
+	} 
+	
+	public String publicKeyToString(PublicKey p) {
+
+	    byte[] publicKeyBytes = p.getEncoded();
+	    BASE64Encoder encoder = new BASE64Encoder();
+	    return encoder.encode(publicKeyBytes);
+	}
+	public String secretKeyToString(SecretKey k){
+		String encodedKey=Base64.getEncoder().encodeToString(k.getEncoded());
+		return encodedKey;
+	}
+	public SecretKey stringToSecretKey(String s){
+		byte[] decodedKey = Base64.getDecoder().decode(s);
+		SecretKey originalKey = new SecretKeySpec(decodedKey, 0, decodedKey.length, "DES");
+		return originalKey;
+	}
+	public String byteToString(byte[] b){
+		String str=new sun.misc.BASE64Encoder().encodeBuffer(b);
+		return str;
+	}
+	public byte[] stringToByte(String s){
+		byte[] text = null;
+		 
+		try {
+			text = new sun.misc.BASE64Decoder().decodeBuffer(s);
+		} catch (IOException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
+		return text;
+	}
+	
 }
