@@ -9,6 +9,7 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.math.BigInteger;
 import java.net.Socket;
+import java.nio.charset.Charset;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
@@ -64,6 +65,7 @@ public class Connection extends Thread {
 	public boolean writeMsgWithPubkey(String msg) {
 		 log.info("msg to write:"+msg);
 		byte[] text = stringToByte(msg);
+
 		
 
 		PublicKey pubkey=ControlSolution.parentPubKey;
@@ -74,7 +76,8 @@ public class Connection extends Thread {
 			 cipher.init(Cipher.ENCRYPT_MODE, pubkey);
 			 byte[] encryptedText=cipher.doFinal(text);
 			
-			String encryptedStr=byteToString(encryptedText);
+			//String encryptedStr=byteToString(encryptedText);
+			 String encryptedStr=byteToHex(encryptedText);
 			//JSONObject j=new JSONObject();
 			//j.put("encrpte", encryptedStr);
 			 result=writeMsg(encryptedStr);
@@ -88,19 +91,41 @@ public class Connection extends Thread {
 	public boolean writeMsgWithSharedkey(String msg) {
 		//byte[] text=stringToByte(msg);
 		byte[] text=msg.getBytes();
+		log.info("***TEST!***:"+new String(text));
 		SecretKey sharedkey=ControlSolution.sharedKeyList.get(this);
+		log.info("*****encrypt shared key: "+ sharedkey);
 		boolean result = false;
 		try {
-			Cipher cipher = Cipher.getInstance("DES");
+			 Cipher cipher = Cipher.getInstance("DES");
 			 cipher.init(Cipher.ENCRYPT_MODE, sharedkey);
 			 byte[] encryptedText=cipher.doFinal(text);
 			// String str=byteToString(encryptedText);
 			 String str=new String(encryptedText);
-			 result=writeMsg(str);
+			 
+			 //****CHESDA****
+
+			 String hex = byteToHex(encryptedText);
+			 
+
+			  //***CHESDA
+			   //change str -> hex
+			//String s = byteToString(encryptedText);
+			 
+			 log.info("***TEST-encrypt***:"+ new String(encryptedText));
+			 
+			 //byte[] encode = decode.getBytes(UTF8_CHARSET);
+			 log.info("***********************TEST-encrypt with HEX***:"+hex);
+			 
+			 //byte[] b = new BigInteger(hexString.toString(),16).toByteArray();
+			 result=writeMsg(hex);
+	
+			    
+			// log.info("***TEST-decrypt with 64***:"+new String(encode));
 		} catch (NoSuchPaddingException | InvalidKeyException | IllegalBlockSizeException | BadPaddingException | NoSuchAlgorithmException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+		
 		return result;
 	}
 	
@@ -145,7 +170,6 @@ public class Connection extends Thread {
 	}
 	public String byteToString(byte[] b){
 		String str=new sun.misc.BASE64Encoder().encodeBuffer(b);
-		
 		return str;
 	}
 	public byte[] stringToByte(String s){
@@ -158,6 +182,19 @@ public class Connection extends Thread {
 			e1.printStackTrace();
 		}
 		return text;
+	}
+	
+	public String byteToHex (byte[] b){
+		 StringBuilder hexString = new StringBuilder();
+		    for (int i = 0; i < b.length; i++) {
+		        String hex = Integer.toHexString(0xFF & b[i]);
+		        if (hex.length() == 1) {
+		            hexString.append('0');
+		        }
+		        hexString.append(hex);
+		    }
+		    
+		    return hexString.toString();
 	}
 	
 }

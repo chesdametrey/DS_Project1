@@ -7,6 +7,7 @@ import java.io.InputStreamReader;
 import java.math.BigInteger;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.nio.charset.Charset;
 import java.security.InvalidKeyException;
 import java.security.KeyFactory;
 import java.security.KeyPair;
@@ -29,15 +30,18 @@ import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import javax.xml.bind.DatatypeConverter;
+import javax.xml.bind.annotation.adapters.HexBinaryAdapter;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
 
 import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
 
+import activitystreamer.client.ClientSolution;
 import activitystreamer.util.Settings;
 import sun.misc.BASE64Encoder;
 
@@ -53,6 +57,7 @@ public class ControlSolution extends Control {
 	static ArrayList<ServerAnnounce> serverAnnounces = new ArrayList<ServerAnnounce>();
 	String wholeSecret = null;
 	private String ID = null;
+	private JSONParser parser = new JSONParser();
 
 	int respondCount = 0;
 	boolean lockAllow = true;
@@ -155,10 +160,13 @@ public class ControlSolution extends Control {
 		/*
 		 * do additional work here return true/false as appropriate
 		 */
+		
+		//******CHECK HERE MSG IS CORRUPTED
+		log.info("********"+"JSONVALID?= "+isGoodJson(msg)+" ----- "+ msg);
 		if(!isGoodJson(msg)){
 			log.info("=========");
 			con.newVersion=true;
-			msg=decrypt(msg);
+			msg=decrypt(con,msg);
 			}
 			
 		log.info("Msg received1");
@@ -168,7 +176,6 @@ public class ControlSolution extends Control {
 		
 		boolean closeCon=false;
 		
-		log.info(msg);
 		try {
 			messageObject = (JSONObject) parser.parse(msg);
 			/*if(messageObject.containsKey("encrpte")){
@@ -396,6 +403,8 @@ public class ControlSolution extends Control {
 		serverAnnounce.put("port", Settings.getLocalPort());
 
 		for (Connection c : allServers) {
+			
+			//******************ERROR***************
 			c.writeMsgWithSharedkey(serverAnnounce.toJSONString());
 		}
 
@@ -673,41 +682,70 @@ public class ControlSolution extends Control {
 		}
 	}
 	 public boolean isGoodJson(String json) {  
+		 /*JSONObject ob;
 	        try {  
-	            new JsonParser().parse(json);  
+	            ob = (JSONObject)new JSONParser().parse(json);  
 	            return true;  
 	        } catch (JsonParseException e) {  
 	            log.error("bad json: " + json);  
 	            return false;  
-	        }  
+	        } catch (ParseException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+				log.error("bad json: " + json);  
+	            return false; 
+			} */
+		 
+		 JSONObject obj;
+			try {
+				obj = (JSONObject) parser.parse(json);
+				//ClientSolution.getInstance().sendActivityObject(obj);
+				return true;
+			} catch (ParseException e1) {
+				log.error("invalid JSON object entered into input text field, data not sent");
+				return false;
+			}
+
 	    } 
-	 public String decrypt(String msg){
+	 public String decrypt(Connection con, String msg){
 		 log.info("msg???????"+msg);
 		
 		// byte[] receivedMsg=stringToByte(msg);
-		 byte[] receivedMsg=msg.getBytes();
+		 //byte[] b = new BigInteger(msg.toString(),16).toByteArray();
+		 HexBinaryAdapter adapter = new HexBinaryAdapter();
+	     byte[] b = adapter.unmarshal(msg);
+		
+		 //byte[] encode = stringToByte(msg);
+		 log.info("**AFTER HEX**:"+new String(b));
+		// byte[] receivedMsg=msg.getBytes();
 
 		 byte[] text = null;
-			if(sharedKeyList.contains(this)){
-				///
+		 log.info("***** PASS THROUGH???????****** "+ sharedKeyList.get(con) +"size:"+sharedKeyList.size());
+		 
+		 //***ERROR *** CHANGE FROM this -> con
+			if(sharedKeyList.containsKey(con)){
+				
 				//decrypt with sharedkey
-				SecretKey sharedkey=sharedKeyList.get(this);
+				SecretKey sharedkey=sharedKeyList.get(con);
+				log.info("*****decrypt shared key: "+ sharedkey);
 				try {
 					Cipher desCipher = Cipher.getInstance("DES");
 					desCipher.init(Cipher.DECRYPT_MODE, sharedkey);
-					text=desCipher.doFinal(receivedMsg);
+					text=desCipher.doFinal(b);
+					log.info("***** DNCRYPTED******:"+new String(text));
 				} catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | IllegalBlockSizeException | BadPaddingException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
-			}else{
+			}
+			else{
 				//decrypt with privkey
 				try {
 					log.info("aaaaaaaaa!");
 					Cipher cipher = Cipher.getInstance("RSA");
 					log.info("aaaaapubKeyThisSide:"+publicKey);
 					cipher.init(Cipher.DECRYPT_MODE, privateKey);
-					text=cipher.doFinal(receivedMsg);
+					text=cipher.doFinal(b);
 					log.info("text!!!!!!!"+text);
 				} catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | IllegalBlockSizeException | BadPaddingException e) {
 					// TODO Auto-generated catch block
