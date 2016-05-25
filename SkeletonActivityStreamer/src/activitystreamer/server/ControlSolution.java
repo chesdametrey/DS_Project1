@@ -379,6 +379,7 @@ public class ControlSolution extends Control {
 				}
 				break;
 			case "REQUEST_PUBKEY":
+				con.newVersion=true;
 				JSONObject response=new JSONObject();
 				response.put("command", "RESPONSE_PUBKEY");
 				response.put("pubkey", publicKeyToString(publicKey));
@@ -516,7 +517,7 @@ public class ControlSolution extends Control {
 			if(con.newVersion){
 				con.writeMsgWithSharedkey(success.toJSONString());
 			}else{
-				success.toJSONString();
+				con.writeMsg(success.toJSONString());
 			}
 
 		}else{
