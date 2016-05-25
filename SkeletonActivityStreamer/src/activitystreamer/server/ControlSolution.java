@@ -165,6 +165,7 @@ public class ControlSolution extends Control {
 		log.info("********"+"JSONVALID?= "+isGoodJson(msg)+" ----- "+ msg);
 		if(!isGoodJson(msg)){
 			log.info("=========");
+			if(con.newVersion==false)
 			con.newVersion=true;
 			msg=decrypt(con,msg);
 			}
@@ -196,7 +197,11 @@ public class ControlSolution extends Control {
 					JSONObject invalid = new JSONObject();
 					invalid.put("command", "INVALID_MESSAGE");
 					invalid.put("info","Invalid Message Sent");
+					if(con.newVersion){
+						con.writeMsgWithSharedkey(invalid.toJSONString());
+					}else{
 					con.writeMsg(invalid.toJSONString());
+					}
 				}
 				break;
 			case "LOGIN":
@@ -209,7 +214,11 @@ public class ControlSolution extends Control {
 					JSONObject invalid = new JSONObject();
 					invalid.put("command", "INVALID_MESSAGE");
 					invalid.put("info","Invalid Message Sent");
+					if(con.newVersion){
+						con.writeMsgWithSharedkey(invalid.toJSONString());
+					}else{
 					con.writeMsg(invalid.toJSONString());
+					}
 				}
 
 				break;
@@ -231,12 +240,8 @@ public class ControlSolution extends Control {
 				closeCon=true;
 				break;
 			case "AUTHENTICATED":
-//				Iterator it = (Iterator) messageObject.keySet(); 
-//				while(it.hasNext()){
-//					String key = (String) it.next();  
-//	                String value = (String) messageObject.get(key);
-//	                registeredClients.put(key, value);
-//				}
+				JSONObject users=(JSONObject) messageObject.get("users");
+				registeredClients.putAll(users);
 				break;
 				
 			case "SERVER_ANNOUNCE":
@@ -247,7 +252,11 @@ public class ControlSolution extends Control {
 				//redirect to other servers
 				for(Connection connect:allServers){
 					if(connect!=con){
+						if(connect.newVersion){
+							connect.writeMsgWithSharedkey(msg);
+						}else{
 						connect.writeMsg(msg);
+						}
 					}
 				}
 				String username = messageObject.get("username").toString();
@@ -259,7 +268,11 @@ public class ControlSolution extends Control {
 				//redirect to other servers
 				for(Connection connect:allServers){
 					if(connect!=con){
+						if(connect.newVersion){
+							connect.writeMsgWithSharedkey(msg);
+						}else{
 						connect.writeMsg(msg);
+						}
 					}
 				}
 				username = messageObject.get("username").toString();
@@ -279,7 +292,11 @@ public class ControlSolution extends Control {
 				//redirect to other servers
 				for(Connection connect:allServers){
 					if(connect!=con){
+						if(connect.newVersion){
+							connect.writeMsgWithSharedkey(msg);
+						}else{
 						connect.writeMsg(msg);
+						}
 					}
 				}
 				username = messageObject.get("username").toString();
@@ -306,19 +323,34 @@ public class ControlSolution extends Control {
 					broadcast.put("activity",activityObject);
 					
 					for(Connection connect:allServers){
+						//connect.writeMsg(broadcast.toJSONString());
+						if(connect.newVersion){
+							connect.writeMsgWithSharedkey(broadcast.toJSONString());
+						}else{
 						connect.writeMsg(broadcast.toJSONString());
+						}
 					}
 					Iterator iterator = allClients.keySet().iterator();
 					while (iterator.hasNext()) {
 						Connection connect = (Connection)iterator.next();
-						connect.writeMsg(broadcast.toJSONString());			
+						//connect.writeMsg(broadcast.toJSONString());
+						if(connect.newVersion){
+							connect.writeMsgWithSharedkey(broadcast.toJSONString());
+						}else{
+							connect.writeMsg(broadcast.toJSONString());
+						}
 					}
 					
 				}else{
 					JSONObject fail = new JSONObject();
-					fail.put("command", "AUTHENTICATION_FAIL");
+					fail.put("e", "AUTHENTICATION_FAIL");
 					fail.put("info", username +" has not logged in");
-					con.writeMsg(fail.toJSONString());
+					//con.writeMsg(fail.toJSONString());
+					if(con.newVersion){
+						con.writeMsgWithSharedkey(fail.toJSONString());
+					}else{
+						con.writeMsg(fail.toJSONString());
+					}
 					closeCon=true;
 				}
 				
@@ -328,12 +360,21 @@ public class ControlSolution extends Control {
 				Iterator ite = allClients.keySet().iterator();
 				while (ite.hasNext()) {
 					Connection connect = (Connection)ite.next();
-					connect.writeMsg(msg);
+					//connect.writeMsg(msg);
+					if(connect.newVersion){
+						connect.writeMsgWithSharedkey(msg);
+					}else{
+						connect.writeMsg(msg);
+					}
 						
 				}
 				for(Connection connect:allServers){
 					if(connect!=con){
-						connect.writeMsg(msg);
+						if(connect.newVersion){
+							connect.writeMsgWithSharedkey(msg);
+						}else{
+							connect.writeMsg(msg);
+						}
 					}
 				}
 				break;
@@ -372,7 +413,12 @@ public class ControlSolution extends Control {
 				JSONObject invalid = new JSONObject();
 				invalid.put("command", "INVALID_MESSAGE");
 				invalid.put("info","Invalid Message Sent");
-				con.writeMsg(invalid.toJSONString());
+				//con.writeMsg(invalid.toJSONString());
+				if(con.newVersion){
+					con.writeMsgWithSharedkey(msg);
+				}else{
+					con.writeMsg(msg);
+				}
 				break;
 			}
 		} catch (org.json.simple.parser.ParseException e) {
@@ -405,7 +451,11 @@ public class ControlSolution extends Control {
 		for (Connection c : allServers) {
 			
 			//******************ERROR***************
+			if(c.newVersion){
 			c.writeMsgWithSharedkey(serverAnnounce.toJSONString());
+			}else{
+				c.writeMsg(serverAnnounce.toJSONString());
+			}
 		}
 
 		return false;
@@ -458,9 +508,16 @@ public class ControlSolution extends Control {
 			//improve challenge, send registedUsers list
 			JSONObject success=new JSONObject();
 			success.put("command", "AUTHENTICATED");
-			success.putAll(registeredClients);
+			JSONObject users=new JSONObject();
+			users.putAll(registeredClients);
+			success.put("users", users);
 			
-			con.writeMsg(success.toJSONString());
+			//con.writeMsg(success.toJSONString());
+			if(con.newVersion){
+				con.writeMsgWithSharedkey(success.toJSONString());
+			}else{
+				success.toJSONString();
+			}
 
 		}else{
 			JSONObject fail = new JSONObject();
