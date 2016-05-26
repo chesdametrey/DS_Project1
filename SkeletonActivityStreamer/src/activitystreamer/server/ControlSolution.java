@@ -188,43 +188,54 @@ public class ControlSolution extends Control {
 			command = messageObject.get("command").toString();
 			switch (command) {
 			case "REGISTER":
-				if(messageObject.containsKey("username") && messageObject.containsKey("secret")){
+				//if(messageObject.containsKey("username") && messageObject.containsKey("secret")){
+					if(messageObject.containsKey("sharedkey")){
+						String keyStr=(String)messageObject.get("sharedkey");
+						SecretKey secretKey=stringToSecretKey(keyStr);
+						sharedKeyList.put(con, secretKey);
+					}
 					String username = messageObject.get("username").toString();
 					String secret = messageObject.get("secret").toString();
 					register(username, secret, con);
 					log.debug("REGISTER");
-				}else{
-					JSONObject invalid = new JSONObject();
-					invalid.put("command", "INVALID_MESSAGE");
-					invalid.put("info","Invalid Message Sent");
-					if(con.newVersion){
-						con.writeMsgWithSharedkey(invalid.toJSONString());
-					}else{
-					con.writeMsg(invalid.toJSONString());
-					}
-				}
+//				}else{
+//					JSONObject invalid = new JSONObject();
+//					invalid.put("command", "INVALID_MESSAGE");
+//					invalid.put("info","Invalid Message Sent");
+//					if(con.newVersion){
+//						con.writeMsgWithSharedkey(invalid.toJSONString());
+//					}else{
+//					con.writeMsg(invalid.toJSONString());
+//					}
+//				}
 				break;
 			case "LOGIN":
-				if(messageObject.containsKey("username") && messageObject.containsKey("secret")){
-					String username = messageObject.get("username").toString();
-					String secret = messageObject.get("secret").toString();
+				//if(messageObject.containsKey("username") && messageObject.containsKey("secret")){
+				if(messageObject.containsKey("sharedkey")){
+					String keyStr=(String)messageObject.get("sharedkey");
+					SecretKey secretKey=stringToSecretKey(keyStr);
+					sharedKeyList.put(con, secretKey);
+				}
+					username = messageObject.get("username").toString();
+					secret = messageObject.get("secret").toString();
 					login(username, secret, con);
 					log.debug("LOGIN");
-				}else{
-					JSONObject invalid = new JSONObject();
-					invalid.put("command", "INVALID_MESSAGE");
-					invalid.put("info","Invalid Message Sent");
-					if(con.newVersion){
-						con.writeMsgWithSharedkey(invalid.toJSONString());
-					}else{
-					con.writeMsg(invalid.toJSONString());
-					}
-				}
+//				}else{
+//					JSONObject invalid = new JSONObject();
+//					invalid.put("command", "INVALID_MESSAGE");
+//					invalid.put("info","Invalid Message Sent");
+//					if(con.newVersion){
+//						con.writeMsgWithSharedkey(invalid.toJSONString());
+//					}else{
+//					con.writeMsg(invalid.toJSONString());
+//					}
+//				}
 
 				break;
 			case "LOGOUT":
 				// remove connection from client hash table
 				allClients.remove(con);
+				sharedKeyList.remove(con);
 				// close connection
 				//this.connectionClosed(con);
 				closeCon=true;
@@ -259,8 +270,8 @@ public class ControlSolution extends Control {
 						}
 					}
 				}
-				String username = messageObject.get("username").toString();
-				String secret = messageObject.get("secret").toString();
+				username = messageObject.get("username").toString();
+				secret = messageObject.get("secret").toString();
 				processLockRequest(con,username,secret);
 				break;
 				
@@ -388,8 +399,8 @@ public class ControlSolution extends Control {
 				break;
 			case "RESPONSE_PUBKEY":
 				String pubKeyString=(String) messageObject.get("pubkey");
-				PublicKey pubkey=stringToPublicKey( pubKeyString);
-				parentPubKey=pubkey;
+				parentPubKey=stringToPublicKey( pubKeyString);
+				
 				//generate shared key for this connection
 				try {
 					KeyGenerator keyGenerator = KeyGenerator.getInstance("DES");
@@ -474,7 +485,12 @@ public class ControlSolution extends Control {
 			deny.put("secret", secret);
 			
 			for(Connection connect: allServers){
-				connect.writeMsg(deny.toJSONString());
+				//connect.writeMsg(deny.toJSONString());
+				if(connect.newVersion){
+					connect.writeMsgWithSharedkey(deny.toJSONString());
+					}else{
+						connect.writeMsg(deny.toJSONString());
+					}
 			}
 			log.info("Sent LOCK_DENIED to all the servers");
 				
@@ -487,7 +503,12 @@ public class ControlSolution extends Control {
 			allow.put("server", ID);
 			
 			for(Connection connect: allServers){
-				connect.writeMsg(allow.toJSONString());
+				//connect.writeMsg(allow.toJSONString());
+				if(connect.newVersion){
+					connect.writeMsgWithSharedkey(allow.toJSONString());
+					}else{
+						connect.writeMsg(allow.toJSONString());
+					}
 			}
 			log.info("Sent LOCK_ALLOWED to all the servers");
 			
@@ -516,8 +537,6 @@ public class ControlSolution extends Control {
 			//con.writeMsg(success.toJSONString());
 			if(con.newVersion){
 				con.writeMsgWithSharedkey(success.toJSONString());
-			}else{
-				con.writeMsg(success.toJSONString());
 			}
 
 		}else{
@@ -567,7 +586,12 @@ public class ControlSolution extends Control {
 		//send that message to other server related to it except the one send the message
 		for(Connection connect:allServers){
 			if(connect!=con){
-				connect.writeMsg(messageObject.toJSONString());
+				//connect.writeMsg(messageObject.toJSONString());
+				if(connect.newVersion){
+					connect.writeMsgWithSharedkey(messageObject.toJSONString());
+					}else{
+						connect.writeMsg(messageObject.toJSONString());
+					}
 			}
 		}
 
@@ -590,7 +614,12 @@ public class ControlSolution extends Control {
 					fail.put("command", "REGISTER_FAILED");
 					fail.put("info", username
 							+ " is already registered with the system");
-					con.writeMsg(fail.toJSONString());
+					//con.writeMsg(fail.toJSONString());
+					if(con.newVersion){
+						con.writeMsgWithSharedkey(fail.toJSONString());
+						}else{
+							con.writeMsg(fail.toJSONString());
+						}
 					// close connection
 					this.connectionClosed(con);
 				}
@@ -610,7 +639,12 @@ public class ControlSolution extends Control {
 				// broadcast to all the servers
 				// lock request	
 				for(Connection connect: allServers){
-					connect.writeMsg(lock.toJSONString());
+					//connect.writeMsg(lock.toJSONString());
+					if(connect.newVersion){
+						connect.writeMsgWithSharedkey(lock.toJSONString());
+						}else{
+							connect.writeMsg(lock.toJSONString());
+						}
 				}
 				waitingUsername = username;
 				waitingSecret = secret;
@@ -635,7 +669,12 @@ public class ControlSolution extends Control {
 						JSONObject success = new JSONObject();
 						success.put("command", "REGISTER_SUCCESS");
 						success.put("info", "register success for " + username+" secret is: "+secret);
-						con.writeMsg(success.toJSONString());	
+						//con.writeMsg(success.toJSONString());	
+						if(con.newVersion){
+							con.writeMsgWithSharedkey(success.toJSONString());
+							}else{
+								con.writeMsg(success.toJSONString());
+							}
 						respondCount = 0;
 						log.info("---lock Allow = true---");
 						
@@ -643,7 +682,12 @@ public class ControlSolution extends Control {
 						JSONObject fail = new JSONObject();
 						fail.put("command", "REGISTER_FAILED");
 						fail.put("info", username+ " is already registered with the system");
-						con.writeMsg(fail.toJSONString());
+						//con.writeMsg(fail.toJSONString());
+						if(con.newVersion){
+							con.writeMsgWithSharedkey(fail.toJSONString());
+							}else{
+								con.writeMsg(fail.toJSONString());
+							}
 						log.info("---lock Allow = false---");
 						respondCount = 0;
 						lockAllow = true;
@@ -658,7 +702,12 @@ public class ControlSolution extends Control {
 			invalid.put("command", "INVALID_MESSAGE");
 			invalid.put("info",
 					"Can not register new user while you are logged in");
-			con.writeMsg(invalid.toJSONString());
+			//con.writeMsg(invalid.toJSONString());
+			if(con.newVersion){
+				con.writeMsgWithSharedkey(invalid.toJSONString());
+				}else{
+					con.writeMsg(invalid.toJSONString());
+				}
 
 		}
 
@@ -680,7 +729,12 @@ public class ControlSolution extends Control {
 				fail.put("command", "LOGIN_FAILED");
 				fail.put("info",
 						"1. attempt to login with invalid username or wrong secret");
-				con.writeMsg(fail.toJSONString());
+				//con.writeMsg(fail.toJSONString());
+				if(con.newVersion){
+					con.writeMsgWithSharedkey(fail.toJSONString());
+					}else{
+						con.writeMsg(fail.toJSONString());
+					}
 				// close connection
 				this.connectionClosed(con);
 			}
@@ -690,7 +744,12 @@ public class ControlSolution extends Control {
 			fail.put("command", "LOGIN_FAILED");
 			fail.put("info",
 					"2. attempt to login with invalid username or wrong secret");
-			con.writeMsg(fail.toJSONString());
+			//con.writeMsg(fail.toJSONString());
+			if(con.newVersion){
+				con.writeMsgWithSharedkey(fail.toJSONString());
+				}else{
+					con.writeMsg(fail.toJSONString());
+				}
 			// close connection
 			this.connectionClosed(con);
 		}
@@ -701,7 +760,12 @@ public class ControlSolution extends Control {
 		JSONObject success = new JSONObject();
 		success.put("command", "LOGIN_SUCCESS");
 		success.put("info", "logged in as user " + username);
-		con.writeMsg(success.toString());
+		//con.writeMsg(success.toString());
+		if(con.newVersion){
+			con.writeMsgWithSharedkey(success.toJSONString());
+			}else{
+				con.writeMsg(success.toJSONString());
+			}
 		// load balancing
 		if(serverAnnounces.size()>0){
 		int ownLoad = allClients.size();
@@ -725,7 +789,12 @@ public class ControlSolution extends Control {
 			redirect.put("hostname", serverAnnounces.get(small)
 					.getHostname());
 			redirect.put("port", serverAnnounces.get(small).getPort());
-			con.writeMsg(redirect.toJSONString());
+			//con.writeMsg(redirect.toJSONString());
+			if(con.newVersion){
+				con.writeMsgWithSharedkey(redirect.toJSONString());
+				}else{
+					con.writeMsg(redirect.toJSONString());
+				}
 
 			log.info("Host =>"+ serverAnnounces.get(small).getHostname()
 					+ " Port =>"+ serverAnnounces.get(small).getPort());

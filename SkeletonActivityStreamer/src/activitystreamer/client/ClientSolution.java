@@ -2,11 +2,23 @@ package activitystreamer.client;
 
 import java.io.*;
 import java.net.Socket;
+import java.security.InvalidKeyException;
+import java.security.KeyFactory;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
+import java.security.spec.InvalidKeySpecException;
+import java.security.spec.X509EncodedKeySpec;
+import java.util.Base64;
 
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.KeyGenerator;
+import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
+import javax.xml.bind.DatatypeConverter;
+import javax.xml.bind.annotation.adapters.HexBinaryAdapter;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -17,7 +29,9 @@ import org.json.simple.parser.ParseException;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
+import activitystreamer.server.Connection;
 import activitystreamer.util.Settings;
+import sun.misc.BASE64Encoder;
 
 public class ClientSolution extends Thread {
 	private static final Logger log = LogManager.getLogger();
@@ -36,6 +50,8 @@ public class ClientSolution extends Thread {
 	
 	PublicKey pubKey;
 	SecretKey sharedKey;
+	
+	private JSONParser parser = new JSONParser();
 
 	// this is a singleton object
 	public static ClientSolution getInstance() {
@@ -106,6 +122,45 @@ public class ClientSolution extends Thread {
 		}
 		System.out.println("Msg sent");
 	}
+	
+	public void sendObjectWithSharedKey(JSONObject activityObj) {
+		String JsonString = activityObj.toJSONString();
+		byte[] text=JsonString.getBytes();
+		 
+		try {
+			 Cipher cipher = Cipher.getInstance("DES");
+			 cipher.init(Cipher.ENCRYPT_MODE, sharedKey);
+			 byte[] encryptedText=cipher.doFinal(text);
+			 
+			 //****CHESDA****
+
+			 String hex = byteToHex(encryptedText);
+			 
+
+			  //***CHESDA
+			   //change str -> hex
+			//String s = byteToString(encryptedText);
+			 
+			 log.info("***TEST-encrypt***:"+ new String(encryptedText));
+			 
+			 //byte[] encode = decode.getBytes(UTF8_CHARSET);
+			 log.info("***********************TEST-encrypt with HEX***:"+hex);
+			 
+			 //byte[] b = new BigInteger(hexString.toString(),16).toByteArray();
+			 //result=writeMsg(hex);
+			 outToServer.writeBytes(hex + '\n');
+		} catch (NoSuchPaddingException | InvalidKeyException | IllegalBlockSizeException | BadPaddingException | NoSuchAlgorithmException | IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+//		try {
+//			outToServer.writeBytes(hex + '\n');
+//		} catch (IOException e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//		}
+		System.out.println("Msg sent");
+	}
 
 	// called by the gui when the user clicks disconnect
 	public void disconnect() {
@@ -128,6 +183,13 @@ public class ClientSolution extends Thread {
 			try {
 				String JsonMsg = inFromServer.readLine();
 				if(JsonMsg!=null){
+					log.info("********"+"JSONVALID?= "+isGoodJson(JsonMsg)+" ----- "+ JsonMsg);
+					if(!isGoodJson(JsonMsg)){
+						log.info("=========");
+						//if(con.newVersion==false)
+						//con.newVersion=true;
+						JsonMsg=decrypt(JsonMsg);
+						}
 				JSONObject obj;
 				JSONParser parser = new JSONParser();
 				obj = (JSONObject) parser.parse(JsonMsg);
@@ -168,7 +230,8 @@ public class ClientSolution extends Thread {
 					this.closeConnection();
 				}
 				if(obj.get("command").equals("RESPONSE_PUBKEY")){
-					pubKey=(PublicKey) obj.get("pubkey");
+					String pubKeyString=(String) obj.get("pubkey");
+					pubKey=stringToPublicKey( pubKeyString);
 					//generate shared key for this connection
 					try {
 						KeyGenerator keyGenerator = KeyGenerator.getInstance("DES");
@@ -181,7 +244,7 @@ public class ClientSolution extends Thread {
 							loginObject.put("command", "LOGIN");
 							loginObject.put("username", Settings.getUsername());
 							loginObject.put("secret", Settings.getSecret());
-							loginObject.put("sharedkey", sharedKey);
+							loginObject.put("sharedkey", secretKeyToString(sharedKey));
 							this.sendObject(loginObject);
 						}else if (!Settings.getUsername().equals("anonymous") && Settings.getSecret().equals("")){
 							//client wants to register
@@ -192,7 +255,7 @@ public class ClientSolution extends Thread {
 							Settings.setSecret(Settings.nextSecret());
 							
 							registerObject.put("secret", Settings.getSecret());
-							registerObject.put("sharedkey", sharedKey);
+							registerObject.put("sharedkey", secretKeyToString(sharedKey));
 							this.sendObject(registerObject);
 								
 						}else if(Settings.getUsername().equals("anonymous") && Settings.getSecret().equals("")){
@@ -200,7 +263,7 @@ public class ClientSolution extends Thread {
 							loginObject.put("command", "LOGIN");
 							loginObject.put("username", Settings.getUsername());
 							loginObject.put("secret", Settings.getSecret());
-							loginObject.put("sharedkey", sharedKey);
+							loginObject.put("sharedkey", secretKeyToString(sharedKey));
 							this.sendObject(loginObject);
 						}
 						
@@ -237,4 +300,97 @@ public class ClientSolution extends Thread {
 	public final void setTerm(boolean t){
 		term = t;
 	}
-}
+	public PublicKey stringToPublicKey(String string)
+	{
+	byte[]  strByte = DatatypeConverter.parseBase64Binary(string);
+	KeyFactory keyFact = null;
+	PublicKey returnKey = null;
+	try {
+		keyFact = KeyFactory.getInstance("RSA");
+		X509EncodedKeySpec x509KeySpec = new X509EncodedKeySpec(strByte);
+		returnKey = keyFact.generatePublic(x509KeySpec);
+	} catch (NoSuchAlgorithmException | InvalidKeySpecException e1) {
+		// TODO Auto-generated catch block
+		e1.printStackTrace();
+	}
+	
+	return returnKey; 
+	} 
+	
+	public String publicKeyToString(PublicKey p) {
+
+	    byte[] publicKeyBytes = p.getEncoded();
+	    BASE64Encoder encoder = new BASE64Encoder();
+	    return encoder.encode(publicKeyBytes);
+	}
+	public String secretKeyToString(SecretKey k){
+		String encodedKey=Base64.getEncoder().encodeToString(k.getEncoded());
+		return encodedKey;
+	}
+	public SecretKey stringToSecretKey(String s){
+		byte[] decodedKey = Base64.getDecoder().decode(s);
+		SecretKey originalKey = new SecretKeySpec(decodedKey, 0, decodedKey.length, "DES");
+		return originalKey;
+	}
+	 public boolean isGoodJson(String json) {  
+		 
+		 JSONObject obj;
+			try {
+				obj = (JSONObject) parser.parse(json);
+				//ClientSolution.getInstance().sendActivityObject(obj);
+				return true;
+			} catch (ParseException e1) {
+				log.error("invalid JSON object entered into input text field, data not sent");
+				return false;
+			}
+
+	    } 
+	 public String decrypt(String msg){
+		 log.info("msg???????"+msg);
+		
+		// byte[] receivedMsg=stringToByte(msg);
+		 //byte[] b = new BigInteger(msg.toString(),16).toByteArray();
+		 HexBinaryAdapter adapter = new HexBinaryAdapter();
+	     byte[] b = adapter.unmarshal(msg);
+		
+		 //byte[] encode = stringToByte(msg);
+		 log.info("**AFTER HEX**:"+new String(b));
+		// byte[] receivedMsg=msg.getBytes();
+
+		 byte[] text = null;
+		 log.info("***** PASS THROUGH???????****** ");
+		 
+		 //***ERROR *** CHANGE FROM this -> con
+				
+				//decrypt with sharedkey
+				log.info("*****decrypt shared key: "+ sharedKey);
+				try {
+					Cipher desCipher = Cipher.getInstance("DES");
+					desCipher.init(Cipher.DECRYPT_MODE, sharedKey);
+					text=desCipher.doFinal(b);
+					log.info("***** DNCRYPTED******:"+new String(text));
+				} catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | IllegalBlockSizeException | BadPaddingException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				//String jsonStr=new sun.misc.BASE64Encoder().encodeBuffer(text);
+				//String jsonStr=byteToString(text);
+				String jsonStr=new String(text);
+				return jsonStr;
+			}
+	 public String byteToHex (byte[] b){
+		 StringBuilder hexString = new StringBuilder();
+		    for (int i = 0; i < b.length; i++) {
+		        String hex = Integer.toHexString(0xFF & b[i]);
+		        if (hex.length() == 1) {
+		            hexString.append('0');
+		        }
+		        hexString.append(hex);
+		    }
+		    
+		    return hexString.toString();
+	}
+		
+			
+	 }
+
