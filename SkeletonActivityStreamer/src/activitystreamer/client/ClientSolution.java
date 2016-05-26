@@ -94,14 +94,15 @@ public class ClientSolution extends Thread {
 		activity.put("secret", Settings.getSecret());
 		activity.put("activity", JsonString);
 
-		try {
-			outToServer.writeBytes(activity.toJSONString() + '\n');
-			System.out.println("Msg sent");
-
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+//		try {
+//			outToServer.writeBytes(activity.toJSONString() + '\n');
+//			System.out.println("Msg sent");
+//
+//		} catch (IOException e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//		}
+		sendObjectWithSharedKey(activity);
 	}
 
 	public void sendObject(JSONObject activityObj) {
@@ -113,6 +114,28 @@ public class ClientSolution extends Thread {
 			e.printStackTrace();
 		}
 		System.out.println("Msg sent");
+	}
+	public void sendObjectWithPubKey(JSONObject activityObj){
+		String JsonString = activityObj.toJSONString();
+		 byte[] text = JsonString.getBytes();
+		 try {
+				Cipher cipher = Cipher.getInstance("RSA");
+				 cipher.init(Cipher.ENCRYPT_MODE, pubKey);
+				 byte[] encryptedText=cipher.doFinal(text);
+				
+				//String encryptedStr=byteToString(encryptedText);
+				 String encryptedHex=byteToHex(encryptedText);
+				 log.info("--Encrypted Message : "+ encryptedHex);
+				 log.info("--Sent Encrypted Message---");
+				 //result=writeMsg(encryptedHex);
+				 outToServer.writeBytes(encryptedHex + '\n');		
+				 //log.info("msg!!!!!"+new String(encryptedText));
+				 //log.info("msg + hex"+new String(encryptedHex));
+				 
+			} catch (NoSuchPaddingException | InvalidKeyException | IllegalBlockSizeException | BadPaddingException | NoSuchAlgorithmException | IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 	}
 
 	public void sendObjectWithSharedKey(JSONObject activityObj) {
@@ -196,7 +219,7 @@ public class ClientSolution extends Thread {
 						login.put("username", Settings.getUsername());
 						login.put("secret", Settings.getSecret());
 
-						this.sendObject(login);
+						this.sendObjectWithSharedKey(login);
 						log.info("**sent activity object**");
 
 					}
@@ -207,7 +230,7 @@ public class ClientSolution extends Thread {
 						login.put("command", "LOGIN");
 						login.put("username", Settings.getUsername());
 						login.put("secret", Settings.getSecret());
-						this.sendObject(login);
+						this.sendObjectWithSharedKey(login);
 
 					}
 					if (obj.get("command").equals("LOGIN_FAILED")) {
@@ -232,7 +255,7 @@ public class ClientSolution extends Thread {
 								loginObject.put("username", Settings.getUsername());
 								loginObject.put("secret", Settings.getSecret());
 								loginObject.put("sharedkey", secretKeyToString(sharedKey));
-								this.sendObject(loginObject);
+								this.sendObjectWithPubKey(loginObject);
 							} else if (!Settings.getUsername().equals("anonymous") && Settings.getSecret().equals("")) {
 								// client wants to register
 								JSONObject registerObject = new JSONObject();
@@ -243,7 +266,7 @@ public class ClientSolution extends Thread {
 
 								registerObject.put("secret", Settings.getSecret());
 								registerObject.put("sharedkey", secretKeyToString(sharedKey));
-								this.sendObject(registerObject);
+								this.sendObjectWithPubKey(registerObject);
 
 							} else if (Settings.getUsername().equals("anonymous") && Settings.getSecret().equals("")) {
 								JSONObject loginObject = new JSONObject();
@@ -251,7 +274,7 @@ public class ClientSolution extends Thread {
 								loginObject.put("username", Settings.getUsername());
 								loginObject.put("secret", Settings.getSecret());
 								loginObject.put("sharedkey", secretKeyToString(sharedKey));
-								this.sendObject(loginObject);
+								this.sendObjectWithPubKey(loginObject);
 							}
 
 						} catch (NoSuchAlgorithmException e) {
@@ -289,38 +312,9 @@ public class ClientSolution extends Thread {
 		term = t;
 	}
 
-	public PublicKey stringToPublicKey(String string) {
-		byte[] strByte = DatatypeConverter.parseBase64Binary(string);
-		KeyFactory keyFact = null;
-		PublicKey returnKey = null;
-		try {
-			keyFact = KeyFactory.getInstance("RSA");
-			X509EncodedKeySpec x509KeySpec = new X509EncodedKeySpec(strByte);
-			returnKey = keyFact.generatePublic(x509KeySpec);
-		} catch (NoSuchAlgorithmException | InvalidKeySpecException e1) {
-			// TODO Auto-generated catch block
-			e1.printStackTrace();
-		}
-
-		return returnKey;
-	}
-
-	public String publicKeyToString(PublicKey p) {
-
-		byte[] publicKeyBytes = p.getEncoded();
-		BASE64Encoder encoder = new BASE64Encoder();
-		return encoder.encode(publicKeyBytes);
-	}
-
 	public String secretKeyToString(SecretKey k) {
 		String encodedKey = Base64.getEncoder().encodeToString(k.getEncoded());
 		return encodedKey;
-	}
-
-	public SecretKey stringToSecretKey(String s) {
-		byte[] decodedKey = Base64.getDecoder().decode(s);
-		SecretKey originalKey = new SecretKeySpec(decodedKey, 0, decodedKey.length, "DES");
-		return originalKey;
 	}
 
 	public boolean isGoodJson(String json) {
@@ -379,5 +373,21 @@ public class ClientSolution extends Thread {
 
 		return hexString.toString();
 	}
+	public PublicKey stringToPublicKey(String string)
+	{
+	byte[]  strByte = DatatypeConverter.parseBase64Binary(string);
+	KeyFactory keyFact = null;
+	PublicKey returnKey = null;
+	try {
+		keyFact = KeyFactory.getInstance("RSA");
+		X509EncodedKeySpec x509KeySpec = new X509EncodedKeySpec(strByte);
+		returnKey = keyFact.generatePublic(x509KeySpec);
+	} catch (NoSuchAlgorithmException | InvalidKeySpecException e1) {
+		// TODO Auto-generated catch block
+		e1.printStackTrace();
+	}
+	
+	return returnKey; 
+	} 
 
 }
