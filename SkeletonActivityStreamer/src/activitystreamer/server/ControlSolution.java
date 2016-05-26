@@ -1,13 +1,7 @@
 package activitystreamer.server;
 
-import java.io.BufferedReader;
-import java.io.DataOutputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.math.BigInteger;
 import java.net.Socket;
-import java.net.UnknownHostException;
-import java.nio.charset.Charset;
 import java.security.InvalidKeyException;
 import java.security.KeyFactory;
 import java.security.KeyPair;
@@ -37,11 +31,6 @@ import org.apache.logging.log4j.Logger;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
-
-import com.google.gson.JsonParseException;
-import com.google.gson.JsonParser;
-
-import activitystreamer.client.ClientSolution;
 import activitystreamer.util.Settings;
 import sun.misc.BASE64Encoder;
 
@@ -96,7 +85,10 @@ public class ControlSolution extends Control {
 			keyGen.initialize(1024);
 		    KeyPair keyPair = keyGen.generateKeyPair();
 			publicKey = keyPair.getPublic();
-			privateKey = keyPair.getPrivate();
+			log.info("--- PublicKey Generated ---");
+			
+			privateKey = keyPair.getPrivate();	
+			log.info("--- PrivateKey Generated ---");
 		} catch (NoSuchAlgorithmException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -154,7 +146,7 @@ public class ControlSolution extends Control {
 	 * process incoming msg, from connection con return true if the connection
 	 * should be closed, false otherwise
 	 */
-	@SuppressWarnings("unchecked")
+	@SuppressWarnings({ "unchecked", "rawtypes" })
 	@Override
 	public synchronized boolean process(Connection con, String msg) {
 		/*
@@ -162,15 +154,16 @@ public class ControlSolution extends Control {
 		 */
 		
 		//******CHECK HERE MSG IS CORRUPTED
-		log.info("********"+"JSONVALID?= "+isGoodJson(msg)+" ----- "+ msg);
+		log.info("--- JSON Validation = "+isGoodJson(msg));
 		if(!isGoodJson(msg)){
-			log.info("=========");
+			log.info("==== Decrypt Incoming Hex Message =====");
 			if(con.newVersion==false)
-			con.newVersion=true;
-			msg=decrypt(con,msg);
+				con.newVersion=true;
+				log.info("--- Decrypted Message Received ---");
+				msg=decrypt(con,msg);
 			}
 			
-		log.info("Msg received1");
+		//log.info("Msg received1");
 		String command;
 		JSONParser parser = new JSONParser();
 		JSONObject messageObject;
@@ -178,6 +171,7 @@ public class ControlSolution extends Control {
 		boolean closeCon=false;
 		
 		try {
+			log.info("--- Message Received :"+msg);
 			messageObject = (JSONObject) parser.parse(msg);
 			/*if(messageObject.containsKey("encrpte")){
 				con.newVersion=true;
@@ -394,7 +388,7 @@ public class ControlSolution extends Control {
 				JSONObject response=new JSONObject();
 				response.put("command", "RESPONSE_PUBKEY");
 				response.put("pubkey", publicKeyToString(publicKey));
-				log.info("respose Json:"+response.toJSONString());
+				log.info("--- Publickey Response :"+response.toJSONString());
 				con.writeMsg(response.toJSONString());
 				break;
 			case "RESPONSE_PUBKEY":
@@ -412,7 +406,7 @@ public class ControlSolution extends Control {
 					respond.put("secret", Settings.getSecret());
 					respond.put("sharedkey", secretKeyToString(sharedKey));
 					//send msg
-				    con.writeMsg(respond.toJSONString());
+				    con.writeMsgWithPubkey(respond.toJSONString());
 					
 				} catch (NoSuchAlgorithmException e) {
 					// TODO Auto-generated catch block
@@ -476,6 +470,7 @@ public class ControlSolution extends Control {
 	/*
 	 * Other methods as needed
 	 */
+	@SuppressWarnings("unchecked")
 	public synchronized void processLockRequest(Connection con,String username,String secret){
 		
 		if(registeredClients.containsKey(username)){
@@ -515,6 +510,7 @@ public class ControlSolution extends Control {
 		}
 	}
 	
+	@SuppressWarnings("unchecked")
 	public synchronized boolean receiveAuthentication(JSONObject messageObject, Connection con){
 		String secret = messageObject.get("secret").toString();
 		
@@ -809,57 +805,39 @@ public class ControlSolution extends Control {
 		}
 	}
 	 public boolean isGoodJson(String json) {  
-		 /*JSONObject ob;
-	        try {  
-	            ob = (JSONObject)new JSONParser().parse(json);  
-	            return true;  
-	        } catch (JsonParseException e) {  
-	            log.error("bad json: " + json);  
-	            return false;  
-	        } catch (ParseException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-				log.error("bad json: " + json);  
-	            return false; 
-			} */
-		 
-		 JSONObject obj;
+		 @SuppressWarnings("unused")
+		JSONObject obj;
 			try {
 				obj = (JSONObject) parser.parse(json);
 				//ClientSolution.getInstance().sendActivityObject(obj);
 				return true;
 			} catch (ParseException e1) {
-				log.error("invalid JSON object entered into input text field, data not sent");
+				//log.error("invalid JSON object entered into input text field, data not sent");
 				return false;
 			}
 
 	    } 
-	 public String decrypt(Connection con, String msg){
-		 log.info("msg???????"+msg);
-		
-		// byte[] receivedMsg=stringToByte(msg);
+	 public String decrypt(Connection con, String msg){		
+		 
 		 //byte[] b = new BigInteger(msg.toString(),16).toByteArray();
 		 HexBinaryAdapter adapter = new HexBinaryAdapter();
-	     byte[] b = adapter.unmarshal(msg);
+	     byte[] decrypedHex = adapter.unmarshal(msg);
 		
 		 //byte[] encode = stringToByte(msg);
-		 log.info("**AFTER HEX**:"+new String(b));
-		// byte[] receivedMsg=msg.getBytes();
+		 log.info("--- Decrypted Hexed Message :"+new String(decrypedHex));
 
 		 byte[] text = null;
-		 log.info("***** PASS THROUGH???????****** "+ sharedKeyList.get(con) +"size:"+sharedKeyList.size());
+		 log.info("--- ShareKeyList Size: "+sharedKeyList.size());
 		 
-		 //***ERROR *** CHANGE FROM this -> con
 			if(sharedKeyList.containsKey(con)){
 				
 				//decrypt with sharedkey
 				SecretKey sharedkey=sharedKeyList.get(con);
-				log.info("*****decrypt shared key: "+ sharedkey);
 				try {
 					Cipher desCipher = Cipher.getInstance("DES");
 					desCipher.init(Cipher.DECRYPT_MODE, sharedkey);
-					text=desCipher.doFinal(b);
-					log.info("***** DNCRYPTED******:"+new String(text));
+					text=desCipher.doFinal(decrypedHex);
+					log.info("--- Message Decrypted with sharedkey: "+new String(text));
 				} catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | IllegalBlockSizeException | BadPaddingException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
@@ -868,12 +846,13 @@ public class ControlSolution extends Control {
 			else{
 				//decrypt with privkey
 				try {
-					log.info("aaaaaaaaa!");
 					Cipher cipher = Cipher.getInstance("RSA");
-					log.info("aaaaapubKeyThisSide:"+publicKey);
+					//log.info("aaaaapubKeyThisSide:"+publicKey);
 					cipher.init(Cipher.DECRYPT_MODE, privateKey);
-					text=cipher.doFinal(b);
-					log.info("text!!!!!!!"+text);
+					text=cipher.doFinal(decrypedHex);
+					log.info("--- Decrypted Message: "+new String(text));
+					
+
 				} catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | IllegalBlockSizeException | BadPaddingException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
@@ -958,6 +937,7 @@ public class ControlSolution extends Control {
 	    byte[] publicKeyBytes = p.getEncoded();
 	    BASE64Encoder encoder = new BASE64Encoder();
 	    return encoder.encode(publicKeyBytes);
+	    
 	}
 	public String secretKeyToString(SecretKey k){
 		String encodedKey=Base64.getEncoder().encodeToString(k.getEncoded());

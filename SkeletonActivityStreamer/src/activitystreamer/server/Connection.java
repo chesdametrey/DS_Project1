@@ -12,6 +12,7 @@ import java.net.Socket;
 import java.nio.charset.Charset;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
+import java.security.PrivateKey;
 import java.security.PublicKey;
 
 import javax.crypto.BadPaddingException;
@@ -63,13 +64,15 @@ public class Connection extends Thread {
 		return false;
 	}
 	public boolean writeMsgWithPubkey(String msg) {
-		 log.info("msg to write:"+msg);
-		byte[] text = stringToByte(msg);
+		 log.info("--- Message to send :"+msg);
+		 
+		 /***stringToByte cause problem -> not convert to byte, but Base64***/
+		//byte[] text = stringToByte(msg);
+		 byte[] text = msg.getBytes();
 
 		
 
 		PublicKey pubkey=ControlSolution.parentPubKey;
-		//log.info("aaapubKey:"+pubkey.toString());
 		boolean result = false;
 		try {
 			Cipher cipher = Cipher.getInstance("RSA");
@@ -77,11 +80,14 @@ public class Connection extends Thread {
 			 byte[] encryptedText=cipher.doFinal(text);
 			
 			//String encryptedStr=byteToString(encryptedText);
-			 String encryptedStr=byteToHex(encryptedText);
-			//JSONObject j=new JSONObject();
-			//j.put("encrpte", encryptedStr);
-			 result=writeMsg(encryptedStr);
-			 log.info("msg!!!!!"+encryptedStr);
+			 String encryptedHex=byteToHex(encryptedText);
+			 log.info("--Encrypted Message : "+ encryptedHex);
+			 log.info("--Sent Encrypted Message---");
+			 result=writeMsg(encryptedHex);
+			 		
+			 //log.info("msg!!!!!"+new String(encryptedText));
+			 //log.info("msg + hex"+new String(encryptedHex));
+			 
 		} catch (NoSuchPaddingException | InvalidKeyException | IllegalBlockSizeException | BadPaddingException | NoSuchAlgorithmException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -91,36 +97,24 @@ public class Connection extends Thread {
 	public boolean writeMsgWithSharedkey(String msg) {
 		//byte[] text=stringToByte(msg);
 		byte[] text=msg.getBytes();
-		log.info("***TEST!***:"+new String(text));
+		//log.info("***TEST!***:"+new String(text));
 		SecretKey sharedkey=ControlSolution.sharedKeyList.get(this);
-		log.info("*****encrypt shared key: "+ sharedkey);
 		boolean result = false;
 		try {
 			 Cipher cipher = Cipher.getInstance("DES");
 			 cipher.init(Cipher.ENCRYPT_MODE, sharedkey);
 			 byte[] encryptedText=cipher.doFinal(text);
 			// String str=byteToString(encryptedText);
-			 String str=new String(encryptedText);
+			// String str=new String(encryptedText);
 			 
-			 //****CHESDA****
-
 			 String hex = byteToHex(encryptedText);
-			 
-
-			  //***CHESDA
-			   //change str -> hex
-			//String s = byteToString(encryptedText);
-			 
-			 log.info("***TEST-encrypt***:"+ new String(encryptedText));
-			 
+			 log.info("--- Message Encrypted With SharedKey ---");
 			 //byte[] encode = decode.getBytes(UTF8_CHARSET);
-			 log.info("***********************TEST-encrypt with HEX***:"+hex);
-			 
-			 //byte[] b = new BigInteger(hexString.toString(),16).toByteArray();
+			 log.info("--- Encrypted Message : "+hex);
+		
+			 log.info("--- Sent Encrypted Message ---");
 			 result=writeMsg(hex);
-	
-			    
-			// log.info("***TEST-decrypt with 64***:"+new String(encode));
+
 		} catch (NoSuchPaddingException | InvalidKeyException | IllegalBlockSizeException | BadPaddingException | NoSuchAlgorithmException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();

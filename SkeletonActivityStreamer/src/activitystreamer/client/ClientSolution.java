@@ -25,18 +25,13 @@ import org.apache.logging.log4j.Logger;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
-
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-
-import activitystreamer.server.Connection;
 import activitystreamer.util.Settings;
 import sun.misc.BASE64Encoder;
 
 public class ClientSolution extends Thread {
 	private static final Logger log = LogManager.getLogger();
 	private static ClientSolution clientSolution;
-	private static boolean term  = false;
+	private static boolean term = false;
 	private TextFrame textFrame;
 
 	/*
@@ -47,10 +42,10 @@ public class ClientSolution extends Thread {
 	private DataOutputStream outToServer;
 	private String remoteHost = Settings.getRemoteHostname();
 	private int remotePort = Settings.getRemotePort();
-	
+
 	PublicKey pubKey;
 	SecretKey sharedKey;
-	
+
 	private JSONParser parser = new JSONParser();
 
 	// this is a singleton object
@@ -72,19 +67,16 @@ public class ClientSolution extends Thread {
 		textFrame = new TextFrame();
 		try {
 			clientSocket = new Socket(this.remoteHost, this.remotePort);
-			System.out.println("Connect to Server " + this.remoteHost + ":"
-					+ remotePort + " successfully.");
-			inFromServer = new BufferedReader(new InputStreamReader(
-					clientSocket.getInputStream()));
+			System.out.println("Connect to Server " + this.remoteHost + ":" + remotePort + " successfully.");
+			inFromServer = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
 			outToServer = new DataOutputStream(clientSocket.getOutputStream());
 		} catch (IOException e) {
-			System.out.println("Failed to connect server " + remoteHost + ":"
-					+ remotePort);
+			System.out.println("Failed to connect server " + remoteHost + ":" + remotePort);
 			System.out.println(e.toString());
 			e.printStackTrace();
 		}
 		// start the client's thread
-		JSONObject requestKey=new JSONObject();
+		JSONObject requestKey = new JSONObject();
 		requestKey.put("command", "REQUEST_PUBKEY");
 		this.sendObject(requestKey);
 
@@ -95,23 +87,23 @@ public class ClientSolution extends Thread {
 	@SuppressWarnings("unchecked")
 	public void sendActivityObject(JSONObject activityObj) {
 		String JsonString = activityObj.toJSONString();
-		
+
 		JSONObject activity = new JSONObject();
 		activity.put("command", "ACTIVITY_MESSAGE");
-		activity.put("username",Settings.getUsername());
+		activity.put("username", Settings.getUsername());
 		activity.put("secret", Settings.getSecret());
 		activity.put("activity", JsonString);
-		
+
 		try {
 			outToServer.writeBytes(activity.toJSONString() + '\n');
 			System.out.println("Msg sent");
-			
+
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 	}
-	
+
 	public void sendObject(JSONObject activityObj) {
 		String JsonString = activityObj.toJSONString();
 		try {
@@ -122,57 +114,53 @@ public class ClientSolution extends Thread {
 		}
 		System.out.println("Msg sent");
 	}
-	
+
 	public void sendObjectWithSharedKey(JSONObject activityObj) {
 		String JsonString = activityObj.toJSONString();
-		byte[] text=JsonString.getBytes();
-		 
+		byte[] text = JsonString.getBytes();
+
 		try {
-			 Cipher cipher = Cipher.getInstance("DES");
-			 cipher.init(Cipher.ENCRYPT_MODE, sharedKey);
-			 byte[] encryptedText=cipher.doFinal(text);
-			 
-			 //****CHESDA****
+			Cipher cipher = Cipher.getInstance("DES");
+			cipher.init(Cipher.ENCRYPT_MODE, sharedKey);
+			byte[] encryptedText = cipher.doFinal(text);
 
-			 String hex = byteToHex(encryptedText);
-			 
+			String hex = byteToHex(encryptedText);
 
-			  //***CHESDA
-			   //change str -> hex
-			//String s = byteToString(encryptedText);
-			 
-			 log.info("***TEST-encrypt***:"+ new String(encryptedText));
-			 
-			 //byte[] encode = decode.getBytes(UTF8_CHARSET);
-			 log.info("***********************TEST-encrypt with HEX***:"+hex);
-			 
-			 //byte[] b = new BigInteger(hexString.toString(),16).toByteArray();
-			 //result=writeMsg(hex);
-			 outToServer.writeBytes(hex + '\n');
-		} catch (NoSuchPaddingException | InvalidKeyException | IllegalBlockSizeException | BadPaddingException | NoSuchAlgorithmException | IOException e) {
+			//log.info("***TEST-encrypt***:" + new String(encryptedText));
+
+			// byte[] encode = decode.getBytes(UTF8_CHARSET);
+			log.info("--- Encrypted Message:" + hex);
+			log.info("--- Sent Encypted Message ---");
+
+			// byte[] b = new BigInteger(hexString.toString(),16).toByteArray();
+			// result=writeMsg(hex);
+			outToServer.writeBytes(hex + '\n');
+		} catch (NoSuchPaddingException | InvalidKeyException | IllegalBlockSizeException | BadPaddingException
+				| NoSuchAlgorithmException | IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-//		try {
-//			outToServer.writeBytes(hex + '\n');
-//		} catch (IOException e) {
-//			// TODO Auto-generated catch block
-//			e.printStackTrace();
-//		}
+		// try {
+		// outToServer.writeBytes(hex + '\n');
+		// } catch (IOException e) {
+		// // TODO Auto-generated catch block
+		// e.printStackTrace();
+		// }
 		System.out.println("Msg sent");
 	}
 
 	// called by the gui when the user clicks disconnect
+	@SuppressWarnings("unchecked")
 	public void disconnect() {
 		/*
 		 * other things to do
 		 */
 		setTerm(true);
 		JSONObject logout = new JSONObject();
-		logout.put("command","LOGOUT");
+		logout.put("command", "LOGOUT");
 		this.sendObject(logout);
 		this.closeConnection();
-		
+
 	}
 
 	// the client's run method, to receive messages
@@ -182,96 +170,95 @@ public class ClientSolution extends Thread {
 		while (!term) {
 			try {
 				String JsonMsg = inFromServer.readLine();
-				if(JsonMsg!=null){
-					log.info("********"+"JSONVALID?= "+isGoodJson(JsonMsg)+" ----- "+ JsonMsg);
-					if(!isGoodJson(JsonMsg)){
+				if (JsonMsg != null) {
+					log.info("--- JSON Validation = " + isGoodJson(JsonMsg));
+					if (!isGoodJson(JsonMsg)) {
 						log.info("=========");
-						//if(con.newVersion==false)
-						//con.newVersion=true;
-						JsonMsg=decrypt(JsonMsg);
-						}
-				JSONObject obj;
-				JSONParser parser = new JSONParser();
-				obj = (JSONObject) parser.parse(JsonMsg);
-				textFrame.setOutputText(obj);
-				
-				if(obj.get("command").equals("REDIRECT")){
-					this.clientSocket = new Socket(obj.get("hostname").toString(), Integer.parseInt(obj.get("port").toString()));
-					this.inFromServer = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-					this.outToServer = new DataOutputStream(clientSocket.getOutputStream());
-					log.info("***Established new redirect connection***");
-
-					
-					JSONObject login = new JSONObject();
-					
-					login.put("command", "LOGIN");
-					login.put("username", Settings.getUsername());
-					login.put("secret", Settings.getSecret());
-					
-					this.sendObject(login);
-					log.info("**sent activity object**");
-					
-					
-				}
-				
-				if(obj.get("command").equals("REGISTER_SUCCESS")){
-					
-					JSONObject login = new JSONObject();
-					login.put("command", "LOGIN");
-					login.put("username", Settings.getUsername());
-					login.put("secret", Settings.getSecret());
-					this.sendObject(login);
-					
-				}
-				if(obj.get("command").equals("LOGIN_FAILED")){
-					this.closeConnection();
-				}
-				if(obj.get("command").equals("REGISTER_FAILED")){
-					this.closeConnection();
-				}
-				if(obj.get("command").equals("RESPONSE_PUBKEY")){
-					String pubKeyString=(String) obj.get("pubkey");
-					pubKey=stringToPublicKey( pubKeyString);
-					//generate shared key for this connection
-					try {
-						KeyGenerator keyGenerator = KeyGenerator.getInstance("DES");
-						sharedKey = keyGenerator.generateKey();
-						
-						log.info("USERNAME => "+Settings.getUsername());
-						//Client wants to login
-						if (!Settings.getUsername().equals("anonymous") && !Settings.getSecret().equals("")){
-							JSONObject loginObject = new JSONObject();
-							loginObject.put("command", "LOGIN");
-							loginObject.put("username", Settings.getUsername());
-							loginObject.put("secret", Settings.getSecret());
-							loginObject.put("sharedkey", secretKeyToString(sharedKey));
-							this.sendObject(loginObject);
-						}else if (!Settings.getUsername().equals("anonymous") && Settings.getSecret().equals("")){
-							//client wants to register
-							JSONObject registerObject = new JSONObject();
-							registerObject.put("command", "REGISTER");
-							registerObject.put("username", Settings.getUsername());
-							//generate a secret key
-							Settings.setSecret(Settings.nextSecret());
-							
-							registerObject.put("secret", Settings.getSecret());
-							registerObject.put("sharedkey", secretKeyToString(sharedKey));
-							this.sendObject(registerObject);
-								
-						}else if(Settings.getUsername().equals("anonymous") && Settings.getSecret().equals("")){
-							JSONObject loginObject = new JSONObject();
-							loginObject.put("command", "LOGIN");
-							loginObject.put("username", Settings.getUsername());
-							loginObject.put("secret", Settings.getSecret());
-							loginObject.put("sharedkey", secretKeyToString(sharedKey));
-							this.sendObject(loginObject);
-						}
-						
-					} catch (NoSuchAlgorithmException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
+						// if(con.newVersion==false)
+						// con.newVersion=true;
+						JsonMsg = decrypt(JsonMsg);
 					}
-				}
+					JSONObject obj;
+					JSONParser parser = new JSONParser();
+					obj = (JSONObject) parser.parse(JsonMsg);
+					textFrame.setOutputText(obj);
+
+					if (obj.get("command").equals("REDIRECT")) {
+						this.clientSocket = new Socket(obj.get("hostname").toString(),
+								Integer.parseInt(obj.get("port").toString()));
+						this.inFromServer = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+						this.outToServer = new DataOutputStream(clientSocket.getOutputStream());
+						log.info("***Established new redirect connection***");
+
+						JSONObject login = new JSONObject();
+
+						login.put("command", "LOGIN");
+						login.put("username", Settings.getUsername());
+						login.put("secret", Settings.getSecret());
+
+						this.sendObject(login);
+						log.info("**sent activity object**");
+
+					}
+
+					if (obj.get("command").equals("REGISTER_SUCCESS")) {
+
+						JSONObject login = new JSONObject();
+						login.put("command", "LOGIN");
+						login.put("username", Settings.getUsername());
+						login.put("secret", Settings.getSecret());
+						this.sendObject(login);
+
+					}
+					if (obj.get("command").equals("LOGIN_FAILED")) {
+						this.closeConnection();
+					}
+					if (obj.get("command").equals("REGISTER_FAILED")) {
+						this.closeConnection();
+					}
+					if (obj.get("command").equals("RESPONSE_PUBKEY")) {
+						String pubKeyString = (String) obj.get("pubkey");
+						pubKey = stringToPublicKey(pubKeyString);
+						// generate shared key for this connection
+						try {
+							KeyGenerator keyGenerator = KeyGenerator.getInstance("DES");
+							sharedKey = keyGenerator.generateKey();
+
+							log.info("USERNAME => " + Settings.getUsername());
+							// Client wants to login
+							if (!Settings.getUsername().equals("anonymous") && !Settings.getSecret().equals("")) {
+								JSONObject loginObject = new JSONObject();
+								loginObject.put("command", "LOGIN");
+								loginObject.put("username", Settings.getUsername());
+								loginObject.put("secret", Settings.getSecret());
+								loginObject.put("sharedkey", secretKeyToString(sharedKey));
+								this.sendObject(loginObject);
+							} else if (!Settings.getUsername().equals("anonymous") && Settings.getSecret().equals("")) {
+								// client wants to register
+								JSONObject registerObject = new JSONObject();
+								registerObject.put("command", "REGISTER");
+								registerObject.put("username", Settings.getUsername());
+								// generate a secret key
+								Settings.setSecret(Settings.nextSecret());
+
+								registerObject.put("secret", Settings.getSecret());
+								registerObject.put("sharedkey", secretKeyToString(sharedKey));
+								this.sendObject(registerObject);
+
+							} else if (Settings.getUsername().equals("anonymous") && Settings.getSecret().equals("")) {
+								JSONObject loginObject = new JSONObject();
+								loginObject.put("command", "LOGIN");
+								loginObject.put("username", Settings.getUsername());
+								loginObject.put("secret", Settings.getSecret());
+								loginObject.put("sharedkey", secretKeyToString(sharedKey));
+								this.sendObject(loginObject);
+							}
+
+						} catch (NoSuchAlgorithmException e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
+						}
+					}
 				}
 
 			} catch (IOException | ParseException e) {
@@ -285,112 +272,112 @@ public class ClientSolution extends Thread {
 	/*
 	 * additional methods
 	 */
-	public void closeConnection(){
+	public void closeConnection() {
 		textFrame.setVisible(false);
 		try {
 			setTerm(true);
 			inFromServer.close();
 			outToServer.close();
-			//clientSocket.close();
+			// clientSocket.close();
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 	}
-	public final void setTerm(boolean t){
+
+	public final void setTerm(boolean t) {
 		term = t;
 	}
-	public PublicKey stringToPublicKey(String string)
-	{
-	byte[]  strByte = DatatypeConverter.parseBase64Binary(string);
-	KeyFactory keyFact = null;
-	PublicKey returnKey = null;
-	try {
-		keyFact = KeyFactory.getInstance("RSA");
-		X509EncodedKeySpec x509KeySpec = new X509EncodedKeySpec(strByte);
-		returnKey = keyFact.generatePublic(x509KeySpec);
-	} catch (NoSuchAlgorithmException | InvalidKeySpecException e1) {
-		// TODO Auto-generated catch block
-		e1.printStackTrace();
+
+	public PublicKey stringToPublicKey(String string) {
+		byte[] strByte = DatatypeConverter.parseBase64Binary(string);
+		KeyFactory keyFact = null;
+		PublicKey returnKey = null;
+		try {
+			keyFact = KeyFactory.getInstance("RSA");
+			X509EncodedKeySpec x509KeySpec = new X509EncodedKeySpec(strByte);
+			returnKey = keyFact.generatePublic(x509KeySpec);
+		} catch (NoSuchAlgorithmException | InvalidKeySpecException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
+
+		return returnKey;
 	}
-	
-	return returnKey; 
-	} 
-	
+
 	public String publicKeyToString(PublicKey p) {
 
-	    byte[] publicKeyBytes = p.getEncoded();
-	    BASE64Encoder encoder = new BASE64Encoder();
-	    return encoder.encode(publicKeyBytes);
+		byte[] publicKeyBytes = p.getEncoded();
+		BASE64Encoder encoder = new BASE64Encoder();
+		return encoder.encode(publicKeyBytes);
 	}
-	public String secretKeyToString(SecretKey k){
-		String encodedKey=Base64.getEncoder().encodeToString(k.getEncoded());
+
+	public String secretKeyToString(SecretKey k) {
+		String encodedKey = Base64.getEncoder().encodeToString(k.getEncoded());
 		return encodedKey;
 	}
-	public SecretKey stringToSecretKey(String s){
+
+	public SecretKey stringToSecretKey(String s) {
 		byte[] decodedKey = Base64.getDecoder().decode(s);
 		SecretKey originalKey = new SecretKeySpec(decodedKey, 0, decodedKey.length, "DES");
 		return originalKey;
 	}
-	 public boolean isGoodJson(String json) {  
-		 
-		 JSONObject obj;
-			try {
-				obj = (JSONObject) parser.parse(json);
-				//ClientSolution.getInstance().sendActivityObject(obj);
-				return true;
-			} catch (ParseException e1) {
-				log.error("invalid JSON object entered into input text field, data not sent");
-				return false;
-			}
 
-	    } 
-	 public String decrypt(String msg){
-		 log.info("msg???????"+msg);
-		
+	public boolean isGoodJson(String json) {
+		@SuppressWarnings("unused")
+		JSONObject obj;
+		try {
+			obj = (JSONObject) parser.parse(json);
+			// ClientSolution.getInstance().sendActivityObject(obj);
+			return true;
+		} catch (ParseException e1) {
+			log.error("invalid JSON object entered into input text field, data not sent");
+			return false;
+		}
+
+	}
+
+	public String decrypt(String msg) {
+
 		// byte[] receivedMsg=stringToByte(msg);
-		 //byte[] b = new BigInteger(msg.toString(),16).toByteArray();
-		 HexBinaryAdapter adapter = new HexBinaryAdapter();
-	     byte[] b = adapter.unmarshal(msg);
-		
-		 //byte[] encode = stringToByte(msg);
-		 log.info("**AFTER HEX**:"+new String(b));
+		// byte[] b = new BigInteger(msg.toString(),16).toByteArray();
+		HexBinaryAdapter adapter = new HexBinaryAdapter();
+		byte[] b = adapter.unmarshal(msg);
+
+		// byte[] encode = stringToByte(msg);
+		log.info("== Client == Message Decrypted with Hex :" + new String(b));
 		// byte[] receivedMsg=msg.getBytes();
 
-		 byte[] text = null;
-		 log.info("***** PASS THROUGH???????****** ");
-		 
-		 //***ERROR *** CHANGE FROM this -> con
-				
-				//decrypt with sharedkey
-				log.info("*****decrypt shared key: "+ sharedKey);
-				try {
-					Cipher desCipher = Cipher.getInstance("DES");
-					desCipher.init(Cipher.DECRYPT_MODE, sharedKey);
-					text=desCipher.doFinal(b);
-					log.info("***** DNCRYPTED******:"+new String(text));
-				} catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | IllegalBlockSizeException | BadPaddingException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-				//String jsonStr=new sun.misc.BASE64Encoder().encodeBuffer(text);
-				//String jsonStr=byteToString(text);
-				String jsonStr=new String(text);
-				return jsonStr;
-			}
-	 public String byteToHex (byte[] b){
-		 StringBuilder hexString = new StringBuilder();
-		    for (int i = 0; i < b.length; i++) {
-		        String hex = Integer.toHexString(0xFF & b[i]);
-		        if (hex.length() == 1) {
-		            hexString.append('0');
-		        }
-		        hexString.append(hex);
-		    }
-		    
-		    return hexString.toString();
-	}
-		
-			
-	 }
+		byte[] text = null;
 
+		// decrypt with sharedkey
+		try {
+			Cipher desCipher = Cipher.getInstance("DES");
+			desCipher.init(Cipher.DECRYPT_MODE, sharedKey);
+			text = desCipher.doFinal(b);
+			log.info("--- Message Decrypted with SharedKey: " + new String(text));
+		} catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | IllegalBlockSizeException
+				| BadPaddingException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		// String jsonStr=new sun.misc.BASE64Encoder().encodeBuffer(text);
+		// String jsonStr=byteToString(text);
+		String jsonStr = new String(text);
+		return jsonStr;
+	}
+
+	public String byteToHex(byte[] b) {
+		StringBuilder hexString = new StringBuilder();
+		for (int i = 0; i < b.length; i++) {
+			String hex = Integer.toHexString(0xFF & b[i]);
+			if (hex.length() == 1) {
+				hexString.append('0');
+			}
+			hexString.append(hex);
+		}
+
+		return hexString.toString();
+	}
+
+}
