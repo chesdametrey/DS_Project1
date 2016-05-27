@@ -175,7 +175,7 @@ public class ClientSolution extends Thread {
 					JSONParser parser = new JSONParser();
 					obj = (JSONObject) parser.parse(JsonMsg);
 					textFrame.setOutputText(obj);
-
+					
 					if (obj.get("command").equals("REDIRECT")) {
 						this.clientSocket = new Socket(obj.get("hostname").toString(),
 								Integer.parseInt(obj.get("port").toString()));
@@ -183,14 +183,23 @@ public class ClientSolution extends Thread {
 						this.outToServer = new DataOutputStream(clientSocket.getOutputStream());
 						log.info("*** Established new redirect connection ***");
 
-						JSONObject login = new JSONObject();
+						
+						// *************fixed something here, the client should request new share key **********
+						log.info("=== Request Redirect Server's Public Key ===");
+						JSONObject requestKey = new JSONObject();
+						requestKey.put("command", "REQUEST_PUBKEY");
+						this.sendObject(requestKey);
+						
+						//*************************************************************************************
+						
+						/*JSONObject login = new JSONObject();
 
 						login.put("command", "LOGIN");
 						login.put("username", Settings.getUsername());
 						login.put("secret", Settings.getSecret());
-
+						
 						this.sendObjectWithSharedKey(login);
-						log.info("*** sent activity object ***");
+						log.info("*** sent activity object ***");*/
 
 					}
 
