@@ -9,24 +9,20 @@ import java.security.PublicKey;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
-
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.KeyGenerator;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
-import javax.crypto.spec.SecretKeySpec;
 import javax.xml.bind.DatatypeConverter;
 import javax.xml.bind.annotation.adapters.HexBinaryAdapter;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 import activitystreamer.util.Settings;
-import sun.misc.BASE64Encoder;
 
 public class ClientSolution extends Thread {
 	private static final Logger log = LogManager.getLogger();
@@ -34,9 +30,6 @@ public class ClientSolution extends Thread {
 	private static boolean term = false;
 	private TextFrame textFrame;
 
-	/*
-	 * additional variables
-	 */
 	private Socket clientSocket;
 	private BufferedReader inFromServer;
 	private DataOutputStream outToServer;
@@ -58,9 +51,6 @@ public class ClientSolution extends Thread {
 
 	@SuppressWarnings("unchecked")
 	public ClientSolution() {
-		/*
-		 * some additional initialization
-		 */
 
 		// open the gui
 		log.debug("opening the gui");
@@ -76,6 +66,7 @@ public class ClientSolution extends Thread {
 			e.printStackTrace();
 		}
 		// start the client's thread
+		log.info("=== Request Server's Public Key ===");
 		JSONObject requestKey = new JSONObject();
 		requestKey.put("command", "REQUEST_PUBKEY");
 		this.sendObject(requestKey);
@@ -93,15 +84,6 @@ public class ClientSolution extends Thread {
 		activity.put("username", Settings.getUsername());
 		activity.put("secret", Settings.getSecret());
 		activity.put("activity", JsonString);
-
-//		try {
-//			outToServer.writeBytes(activity.toJSONString() + '\n');
-//			System.out.println("Msg sent");
-//
-//		} catch (IOException e) {
-//			// TODO Auto-generated catch block
-//			e.printStackTrace();
-//		}
 		sendObjectWithSharedKey(activity);
 	}
 
@@ -113,7 +95,7 @@ public class ClientSolution extends Thread {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		System.out.println("Msg sent");
+		System.out.println("--- Message sent ---");
 	}
 	public void sendObjectWithPubKey(JSONObject activityObj){
 		String JsonString = activityObj.toJSONString();
@@ -125,8 +107,8 @@ public class ClientSolution extends Thread {
 				
 				//String encryptedStr=byteToString(encryptedText);
 				 String encryptedHex=byteToHex(encryptedText);
-				 log.info("--Encrypted Message : "+ encryptedHex);
-				 log.info("--Sent Encrypted Message---");
+				 log.info("--- Encrypted Message : "+ encryptedHex);
+				 log.info("=== Sent Encrypted Message (Public Key) ===");
 				 //result=writeMsg(encryptedHex);
 				 outToServer.writeBytes(encryptedHex + '\n');		
 				 //log.info("msg!!!!!"+new String(encryptedText));
@@ -148,27 +130,15 @@ public class ClientSolution extends Thread {
 			byte[] encryptedText = cipher.doFinal(text);
 
 			String hex = byteToHex(encryptedText);
-
-			//log.info("***TEST-encrypt***:" + new String(encryptedText));
-
 			// byte[] encode = decode.getBytes(UTF8_CHARSET);
 			log.info("--- Encrypted Message:" + hex);
-			log.info("--- Sent Encypted Message ---");
-
-			// byte[] b = new BigInteger(hexString.toString(),16).toByteArray();
-			// result=writeMsg(hex);
+			log.info("=== Sent Encypted Message (Shared Key) ===");
 			outToServer.writeBytes(hex + '\n');
 		} catch (NoSuchPaddingException | InvalidKeyException | IllegalBlockSizeException | BadPaddingException
 				| NoSuchAlgorithmException | IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		// try {
-		// outToServer.writeBytes(hex + '\n');
-		// } catch (IOException e) {
-		// // TODO Auto-generated catch block
-		// e.printStackTrace();
-		// }
 		System.out.println("Msg sent");
 	}
 
@@ -211,7 +181,7 @@ public class ClientSolution extends Thread {
 								Integer.parseInt(obj.get("port").toString()));
 						this.inFromServer = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
 						this.outToServer = new DataOutputStream(clientSocket.getOutputStream());
-						log.info("***Established new redirect connection***");
+						log.info("*** Established new redirect connection ***");
 
 						JSONObject login = new JSONObject();
 
@@ -220,7 +190,7 @@ public class ClientSolution extends Thread {
 						login.put("secret", Settings.getSecret());
 
 						this.sendObjectWithSharedKey(login);
-						log.info("**sent activity object**");
+						log.info("*** sent activity object ***");
 
 					}
 
@@ -292,9 +262,6 @@ public class ClientSolution extends Thread {
 		}
 	}
 
-	/*
-	 * additional methods
-	 */
 	public void closeConnection() {
 		textFrame.setVisible(false);
 		try {
@@ -325,7 +292,7 @@ public class ClientSolution extends Thread {
 			// ClientSolution.getInstance().sendActivityObject(obj);
 			return true;
 		} catch (ParseException e1) {
-			log.error("invalid JSON object entered into input text field, data not sent");
+			//log.error("invalid JSON object entered into input text field, data not sent");
 			return false;
 		}
 
@@ -333,15 +300,9 @@ public class ClientSolution extends Thread {
 
 	public String decrypt(String msg) {
 
-		// byte[] receivedMsg=stringToByte(msg);
-		// byte[] b = new BigInteger(msg.toString(),16).toByteArray();
 		HexBinaryAdapter adapter = new HexBinaryAdapter();
 		byte[] b = adapter.unmarshal(msg);
-
-		// byte[] encode = stringToByte(msg);
 		log.info("== Client == Message Decrypted with Hex :" + new String(b));
-		// byte[] receivedMsg=msg.getBytes();
-
 		byte[] text = null;
 
 		// decrypt with sharedkey
@@ -355,8 +316,6 @@ public class ClientSolution extends Thread {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		// String jsonStr=new sun.misc.BASE64Encoder().encodeBuffer(text);
-		// String jsonStr=byteToString(text);
 		String jsonStr = new String(text);
 		return jsonStr;
 	}

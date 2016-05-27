@@ -7,27 +7,18 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
-import java.math.BigInteger;
 import java.net.Socket;
-import java.nio.charset.Charset;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
-import java.security.PrivateKey;
 import java.security.PublicKey;
-
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.json.simple.JSONObject;
-
 import activitystreamer.util.Settings;
-import sun.misc.BASE64Decoder;
-import sun.misc.BASE64Encoder;
 
 
 public class Connection extends Thread {
@@ -63,14 +54,11 @@ public class Connection extends Thread {
 		}
 		return false;
 	}
+	
 	public boolean writeMsgWithPubkey(String msg) {
-		 log.info("--- Message to send :"+msg);
-		 
-		 /***stringToByte cause problem -> not convert to byte, but Base64***/
-		//byte[] text = stringToByte(msg);
-		 byte[] text = msg.getBytes();
-
 		
+		log.info("--- Message to send :"+msg);
+		byte[] text = msg.getBytes();
 
 		PublicKey pubkey=ControlSolution.parentPubKey;
 		boolean result = false;
@@ -78,15 +66,11 @@ public class Connection extends Thread {
 			Cipher cipher = Cipher.getInstance("RSA");
 			 cipher.init(Cipher.ENCRYPT_MODE, pubkey);
 			 byte[] encryptedText=cipher.doFinal(text);
-			
 			//String encryptedStr=byteToString(encryptedText);
 			 String encryptedHex=byteToHex(encryptedText);
-			 log.info("--Encrypted Message : "+ encryptedHex);
-			 log.info("--Sent Encrypted Message---");
+			 log.info("--- Encrypted Message : "+ encryptedHex);
+			 log.info("=== Sent Encrypted Message (Public Key) ===");
 			 result=writeMsg(encryptedHex);
-			 		
-			 //log.info("msg!!!!!"+new String(encryptedText));
-			 //log.info("msg + hex"+new String(encryptedHex));
 			 
 		} catch (NoSuchPaddingException | InvalidKeyException | IllegalBlockSizeException | BadPaddingException | NoSuchAlgorithmException e) {
 			// TODO Auto-generated catch block
@@ -94,25 +78,21 @@ public class Connection extends Thread {
 		}
 		return result;
 	}
+	
 	public boolean writeMsgWithSharedkey(String msg) {
-		//byte[] text=stringToByte(msg);
+		
 		byte[] text=msg.getBytes();
-		//log.info("***TEST!***:"+new String(text));
 		SecretKey sharedkey=ControlSolution.sharedKeyList.get(this);
 		boolean result = false;
 		try {
 			 Cipher cipher = Cipher.getInstance("DES");
 			 cipher.init(Cipher.ENCRYPT_MODE, sharedkey);
 			 byte[] encryptedText=cipher.doFinal(text);
-			// String str=byteToString(encryptedText);
-			// String str=new String(encryptedText);
 			 
 			 String hex = byteToHex(encryptedText);
 			 log.info("--- Message Encrypted With SharedKey ---");
-			 //byte[] encode = decode.getBytes(UTF8_CHARSET);
 			 log.info("--- Encrypted Message : "+hex);
-		
-			 log.info("--- Sent Encrypted Message ---");
+			 log.info("=== Sent Encrypted Message (Shared Key) ===");
 			 result=writeMsg(hex);
 
 		} catch (NoSuchPaddingException | InvalidKeyException | IllegalBlockSizeException | BadPaddingException | NoSuchAlgorithmException e) {
@@ -162,7 +142,7 @@ public class Connection extends Thread {
 	public boolean isOpen() {
 		return open;
 	}
-	public String byteToString(byte[] b){
+	/*public String byteToString(byte[] b){
 		String str=new sun.misc.BASE64Encoder().encodeBuffer(b);
 		return str;
 	}
@@ -176,7 +156,7 @@ public class Connection extends Thread {
 			e1.printStackTrace();
 		}
 		return text;
-	}
+	}*/
 	
 	public String byteToHex (byte[] b){
 		 StringBuilder hexString = new StringBuilder();

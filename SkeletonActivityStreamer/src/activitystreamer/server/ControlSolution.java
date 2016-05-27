@@ -117,14 +117,7 @@ public class ControlSolution extends Control {
 	@Override
 	public Connection outgoingConnection(Socket s) throws IOException {
 		Connection con = super.outgoingConnection(s);
-		/*
-		 * do additional things here
-		 */
-		/*JSONObject serverMessage = new JSONObject();
-		serverMessage.put("command", "AUTHENTICATE");
-		//serverMessage.put("requestPubKey", "");
-		serverMessage.put("secret", Settings.getSecret());
-		con.writeMsg(serverMessage.toString());*/
+
 		JSONObject requestKey=new JSONObject();
 		requestKey.put("command", "REQUEST_PUBKEY");
 		con.writeMsg(requestKey.toJSONString());
@@ -149,21 +142,18 @@ public class ControlSolution extends Control {
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	@Override
 	public synchronized boolean process(Connection con, String msg) {
-		/*
-		 * do additional work here return true/false as appropriate
-		 */
-		
-		//******CHECK HERE MSG IS CORRUPTED
+
 		log.info("--- JSON Validation = "+isGoodJson(msg));
 		if(!isGoodJson(msg)){
+			log.info("==== Encrypted Message Received  ===== ");
 			log.info("==== Decrypt Incoming Hex Message =====");
 			if(con.newVersion==false)
 				con.newVersion=true;
 				log.info("--- Decrypted Message Received ---");
 				msg=decrypt(con,msg);
-			}
-			
-		//log.info("Msg received1");
+		}else{
+			log.info("--- Message Received :"+msg);
+		}
 		String command;
 		JSONParser parser = new JSONParser();
 		JSONObject messageObject;
@@ -171,7 +161,6 @@ public class ControlSolution extends Control {
 		boolean closeCon=false;
 		
 		try {
-			log.info("--- Message Received :"+msg);
 			messageObject = (JSONObject) parser.parse(msg);
 			/*if(messageObject.containsKey("encrpte")){
 				con.newVersion=true;
@@ -182,7 +171,6 @@ public class ControlSolution extends Control {
 			command = messageObject.get("command").toString();
 			switch (command) {
 			case "REGISTER":
-				//if(messageObject.containsKey("username") && messageObject.containsKey("secret")){
 					if(messageObject.containsKey("sharedkey")){
 						String keyStr=(String)messageObject.get("sharedkey");
 						SecretKey secretKey=stringToSecretKey(keyStr);
@@ -192,19 +180,11 @@ public class ControlSolution extends Control {
 					String secret = messageObject.get("secret").toString();
 					register(username, secret, con);
 					log.debug("REGISTER");
-//				}else{
-//					JSONObject invalid = new JSONObject();
-//					invalid.put("command", "INVALID_MESSAGE");
-//					invalid.put("info","Invalid Message Sent");
-//					if(con.newVersion){
-//						con.writeMsgWithSharedkey(invalid.toJSONString());
-//					}else{
-//					con.writeMsg(invalid.toJSONString());
-//					}
-//				}
+
 				break;
+				
 			case "LOGIN":
-				//if(messageObject.containsKey("username") && messageObject.containsKey("secret")){
+
 				if(messageObject.containsKey("sharedkey")){
 					String keyStr=(String)messageObject.get("sharedkey");
 					SecretKey secretKey=stringToSecretKey(keyStr);
@@ -214,18 +194,9 @@ public class ControlSolution extends Control {
 					secret = messageObject.get("secret").toString();
 					login(username, secret, con);
 					log.debug("LOGIN");
-//				}else{
-//					JSONObject invalid = new JSONObject();
-//					invalid.put("command", "INVALID_MESSAGE");
-//					invalid.put("info","Invalid Message Sent");
-//					if(con.newVersion){
-//						con.writeMsgWithSharedkey(invalid.toJSONString());
-//					}else{
-//					con.writeMsg(invalid.toJSONString());
-//					}
-//				}
 
 				break;
+				
 			case "LOGOUT":
 				// remove connection from client hash table
 				allClients.remove(con);
@@ -244,6 +215,7 @@ public class ControlSolution extends Control {
 				//this.connectionClosed(con);
 				closeCon=true;
 				break;
+				
 			case "AUTHENTICATED":
 				JSONObject users=(JSONObject) messageObject.get("users");
 				registeredClients.putAll(users);
@@ -310,7 +282,6 @@ public class ControlSolution extends Control {
 				if(waitingUsername.equals(username)){
 					respondCount++;
 				}
-				//log.info("---------->respondCount= "+respondCount);
 				break;
 				
 			case "ACTIVITY_MESSAGE":
@@ -455,15 +426,12 @@ public class ControlSolution extends Control {
 		serverAnnounce.put("port", Settings.getLocalPort());
 
 		for (Connection c : allServers) {
-			
-			//******************ERROR***************
 			if(c.newVersion){
-			c.writeMsgWithSharedkey(serverAnnounce.toJSONString());
+				c.writeMsgWithSharedkey(serverAnnounce.toJSONString());
 			}else{
 				c.writeMsg(serverAnnounce.toJSONString());
 			}
 		}
-
 		return false;
 	}
 
@@ -516,7 +484,7 @@ public class ControlSolution extends Control {
 		
 		if (secret.equals(Settings.getSecret())) {
 			allServers.add(con);
-			log.info("New Server AUTHENTICATED");
+			log.info("=== New Server AUTHENTICATED ===");
 			//add shared key
 			if(messageObject.containsKey("sharedkey")){
 				String keyStr=(String)messageObject.get("sharedkey");
@@ -564,7 +532,6 @@ public class ControlSolution extends Control {
 				serverAnnounces.get(i).setHostname(hostname);
 				serverAnnounces.get(i).setLoad(load);
 				serverAnnounces.get(i).setPort(port);
-				//log.info("=======SA LOAD:"+serverAnnounces.get(i).getLoad());
 				SerInformationExist=true;
 			}
 		}
@@ -809,21 +776,17 @@ public class ControlSolution extends Control {
 		JSONObject obj;
 			try {
 				obj = (JSONObject) parser.parse(json);
-				//ClientSolution.getInstance().sendActivityObject(obj);
 				return true;
 			} catch (ParseException e1) {
-				//log.error("invalid JSON object entered into input text field, data not sent");
 				return false;
 			}
-
 	    } 
+	 
 	 public String decrypt(Connection con, String msg){		
 		 
-		 //byte[] b = new BigInteger(msg.toString(),16).toByteArray();
 		 HexBinaryAdapter adapter = new HexBinaryAdapter();
 	     byte[] decrypedHex = adapter.unmarshal(msg);
 		
-		 //byte[] encode = stringToByte(msg);
 		 log.info("--- Decrypted Hexed Message :"+new String(decrypedHex));
 
 		 byte[] text = null;
@@ -847,19 +810,15 @@ public class ControlSolution extends Control {
 				//decrypt with privkey
 				try {
 					Cipher cipher = Cipher.getInstance("RSA");
-					//log.info("aaaaapubKeyThisSide:"+publicKey);
 					cipher.init(Cipher.DECRYPT_MODE, privateKey);
 					text=cipher.doFinal(decrypedHex);
 					log.info("--- Decrypted Message: "+new String(text));
 					
-
 				} catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | IllegalBlockSizeException | BadPaddingException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
 			}
-			//String jsonStr=new sun.misc.BASE64Encoder().encodeBuffer(text);
-			//String jsonStr=byteToString(text);
 			String jsonStr=new String(text);
 			return jsonStr;
 	 }
