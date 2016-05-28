@@ -184,22 +184,12 @@ public class ClientSolution extends Thread {
 						log.info("*** Established new redirect connection ***");
 
 						
-						// *************fixed something here, the client should request new share key **********
+						// Request redirect server's public key
 						log.info("=== Request Redirect Server's Public Key ===");
 						JSONObject requestKey = new JSONObject();
 						requestKey.put("command", "REQUEST_PUBKEY");
 						this.sendObject(requestKey);
 						
-						//*************************************************************************************
-						
-						/*JSONObject login = new JSONObject();
-
-						login.put("command", "LOGIN");
-						login.put("username", Settings.getUsername());
-						login.put("secret", Settings.getSecret());
-						
-						this.sendObjectWithSharedKey(login);
-						log.info("*** sent activity object ***");*/
 
 					}
 
